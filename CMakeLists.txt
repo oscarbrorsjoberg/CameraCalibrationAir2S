@@ -7,12 +7,17 @@ find_package(OpenCV REQUIRED)
 
 set(build_flags #APPEND
  "-std=c++17"
+ "-lstdc++fs"
  "-Wall"
  "-Wextra"
  "-pedantic"
 )
 
+
 message("OpenCV VERSION " ${OpenCV_VERSION})
+message(
+	${build_flags}
+	)
 
 add_executable(${PROJECT_NAME}
 	src/main.cpp
