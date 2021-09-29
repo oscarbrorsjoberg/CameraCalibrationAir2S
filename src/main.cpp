@@ -2,7 +2,6 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
-/* #include <opencv2/aruco.hpp> */
 #include <opencv2/calib3d.hpp>
 
 #include <boost/program_options.hpp>
@@ -14,59 +13,57 @@
 #include <fstream>
 #include <filesystem>
 
+#include "utils.hpp"
 
 namespace fs = std::filesystem;
 namespace po = boost::program_options;
-
-constexpr float SQUARE_DIMENSIONS = 2.635e-2f; //meters
 const cv::Size CHESSBOARD_SIZE = cv::Size(6, 9);
+constexpr float SQUARE_DIMENSIONS = 2.635e-2f; //meters
 
-
-void createKnownBoardDim(cv::Size brdSize, float sqrEdgeLength, std::vector<cv::Point3f> &corners)
+YAML::Node createCameraCalibrationSchema()
 {
-	for(int i = 0; i < brdSize.height; i++)
-		for(int j = 0; j < brdSize.width; j++)
-			corners.push_back(cv::Point3f(j * sqrEdgeLength, i * sqrEdgeLength, 0.0));
-}
+	std::string cmra = "Camera.name: DJI AIR2S\n";
+	cmra +=	"Camera.fx: 0.0\n";
+	cmra += "Camera.fy: 0.0\n";
+	cmra += "Camera.cx: 0.0\n";
+	cmra += "Camera.cy: 0.0\n";
 
-void getChessboardCorners(std::vector<cv::Mat> images, std::vector<std::vector<cv::Point2f>> &allCrnrs, bool showResult = false)
-{
-	std::vector<cv::Point2f> pointBuf;
-	for(std::vector<cv::Mat>::iterator iter = images.begin(); 
-			iter != images.end(); iter++){
-		bool found = findChessboardCorners(*iter, cv::Size(9, 6), pointBuf, 
-				cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_NORMALIZE_IMAGE);
 
-		if(found){
-				allCrnrs.push_back(pointBuf);
-		}
-		if(showResult){
-			drawChessboardCorners(*iter, cv::Size(9, 6), pointBuf, found);
-			cv::imshow("Looking for Corners", *iter);
-			cv::waitKey(0);
-		}
-	}
-}
+	/* distortion parameters*/
+	cmra += "Camera.k1: 0.0\n";
+	cmra += "Camera.k2: 0.0\n";
+	cmra += "Camera.p1: 0.0\n";
+	cmra += "Camera.p2: 0.0\n";
+	cmra += "Camera.k3: 0.0\n";
+	cmra += "Camera.k4: 0.0\n";
+	cmra += "Camera.k5: 0.0\n";
+	cmra += "Camera.k6: 0.0\n";
+	cmra += "Camera.s1: 0.0\n";
+	cmra += "Camera.s2: 0.0\n";
+	cmra += "Camera.s3: 0.0\n";
+	cmra += "Camera.s4: 0.0\n";
+	cmra += "Camera.taox: 0.0\n";
+	cmra += "Camera.taoy: 0.0\n";
 
-void cameraCalibration(std::vector<cv::Mat> calibrationImages, cv::Size boardSize, float squaredLength, cv::Mat& cameraMatrix)
-{
-	std::vector<std::vector<cv::Point2f>> checkerboardImageSpacePoints;
-	getChessboardCorners(calibrationImages, checkerboardImageSpacePoints, false);
-	std::vector<std::vector<cv::Point3f>> worldSpaceCornerPoints(1);
+	/* image sizes */
+	cmra += "Camera.widthPix: 0.0\n";
+	cmra += "Camera.heightPix: 0.0\n";
 
-	worldSpaceCornerPoints.resize(checkerboardImageSpacePoints.size(), worldSpaceCornerPoints[0]);
+	cmra += "FileInformation.DateOfCreation: 0.0\n";
+
+	return YAML::Load(cmra);
 
 }
 
 int main(int argc, char *argv[]){
 
-	/* parse options with boost */
 	try{
-		std::string path, out;
+		std::string path, out, conf;
 		po::options_description opt("CameraCalibration options");
 
 		opt.add_options()
 			("path,p", po::value<std::string>(&path), "path to images")
+			("conf,c", po::value<std::string>(&conf), "configuration file")
 			("out,o", po::value<std::string>(&out), "out camera parameters in .yml")
 			("help,h", "produce help message")
 			;
@@ -86,74 +83,107 @@ int main(int argc, char *argv[]){
 		}
 		else{
 
-			std::string cmra = "Camera.name: DJI AIR2S\n";
-			cmra +=	"Camera.fx: 0.0\n";
-			cmra += "Camera.fy: 0.0\n";
-			cmra += "Camera.cx: 0.0\n";
-			cmra += "Camera.cy: 0.0\n";
-
-
-			/* distortion parameters*/
-			cmra += "Camera.k1: 0.0\n";
-			cmra += "Camera.k2: 0.0\n";
-			cmra += "Camera.p1: 0.0\n";
-			cmra += "Camera.p2: 0.0\n";
-			cmra += "Camera.p2: 0.0\n";
-			
-			/* image sizes */
-			cmra += "Camera.width: 0.0\n";
-			cmra += "Camera.height: 0.0\n";
-
-			cmra += "FileInformation.DateOfCreation: 0.0\n";
- 
-			YAML::Node cameraParameters = YAML::Load(cmra);
-
-			std::ofstream fout(out);
-			fout << cameraParameters;
-			fout.close();
-
+			YAML::Node cameraParams = createCameraCalibrationSchema();
 			/* todo : functionalize*/
-			cv::Mat image, canvass;
+			/* cv::Mat image, canvass; */
 
 			cv::Mat cameraMatrix = cv::Mat::eye(3, 3, CV_64F);
-			cv::Mat distCoefficents;
+			cv::Mat distortionParams = cv::Mat::zeros(14, 1, CV_64F);
+			cv::Mat stdDevDistortionParams, stdDeviationExtrinsics, viewError;
+	    std::vector<cv::Mat> rVectors, tVectors;
 
-			std::vector<cv::Mat> savedImages;
-			std::vector<std::vector<cv::Point2f>> markerCorners, rejectedCandidates;
+			std::vector<std::vector<cv::Point2f>> allCrnrs;
 
-			cv::namedWindow("Calibration Images", cv::WINDOW_NORMAL);
+			/* cv::namedWindow("Calibration Images", cv::WINDOW_NORMAL); */
 			std::vector<cv::Point2f> foundPoints;
+			std::vector<std::vector<cv::Point3f>> worldSpaceCornerPoints;
+			std::vector<cv::Point3f> worldCoords;
+
+
+			/* todo check this! */
+			cv::TermCriteria criteria(cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS, 30, 0.001);
+
 			bool found = false;
-
 			int i = 0;
+
 			for(const auto& en : fs::directory_iterator(path)){
-				std::cout << i++ << std::endl;
-				if(en.path().extension() == ".JPG"){
-					/* image = cv::imread(en.path(), cv::IMREAD_GRAYSCALE); */
-					image = cv::imread(en.path());
-					cv::resize(image, image, cv::Size(image.size[1] / 4, image.size[0] / 4), cv::INTER_AREA);
 
-					found = findChessboardCorners(image, CHESSBOARD_SIZE, foundPoints,
-							cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_NORMALIZE_IMAGE);
+				cv::Mat image = cv::imread(en.path(), cv::IMREAD_GRAYSCALE);
 
-					if(found){
-						image.copyTo(canvass);
-						drawChessboardCorners(canvass, CHESSBOARD_SIZE, foundPoints, found);
-						cv::imshow("Calibration Images", canvass);
-					}
-					else{
-						image.copyTo(canvass);
-						cv::imshow("Calibration Images", canvass);
-					}
+				if(i == 0){
+					cameraParams["Camera.widthPix"] = image.size[1]/2;
+					cameraParams["Camera.heightPix"] = image.size[0]/2;
+				}
+
+				cv::resize(image, image, cv::Size(image.size[1]/2, 
+						image.size[0]/2), cv::INTER_AREA);
+
+
+				found = findChessboardCorners(image, CHESSBOARD_SIZE, foundPoints,
+						cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_NORMALIZE_IMAGE);
+
+				if(found){
+
+					cv::cornerSubPix(image, foundPoints, cv::Size(11, 11), cv::Size(-1, -1), criteria);
+
+					allCrnrs.push_back(foundPoints);
+					createKnownBoardDim(CHESSBOARD_SIZE, SQUARE_DIMENSIONS, worldCoords);
+					worldSpaceCornerPoints.push_back(worldCoords);
 				}
 				else{
-					continue;
+					std::cout << "Unable to find points in image : " << en.path().filename() << std::endl;
 				}
 
-				char exitStat = cv::waitKey(200);
+				std::cout << i++ << std::endl;
+
 			}
 
+			/* worldSpaceCornerPoints.resize(allCrnrs.size(), worldSpaceCornerPoints[0]); */
 
+			std::cout << "size wp " << worldSpaceCornerPoints.size() << std::endl;
+			std::cout << "size pb " << allCrnrs.size() << std::endl;
+
+			std::cout << "size wp " << worldSpaceCornerPoints.at(0).size() << std::endl;
+			std::cout << "size pb " << allCrnrs.at(0).size() << std::endl;
+
+			std::cout << "Starting calibration!" << std::endl;
+
+			calibrateCamera(worldSpaceCornerPoints, allCrnrs, 
+					CHESSBOARD_SIZE, cameraMatrix, distortionParams, rVectors, tVectors,
+					stdDevDistortionParams, stdDeviationExtrinsics, viewError
+					);
+
+			cameraParams["Camera.fx"] = cameraMatrix.at<double>(0,0);
+			cameraParams["Camera.fy"] = cameraMatrix.at<double>(1,1);
+			cameraParams["Camera.cx"] = cameraMatrix.at<double>(0,2);
+			cameraParams["Camera.cy"] = cameraMatrix.at<double>(1,2);
+
+			cameraParams["Camera.k1"] = distortionParams.at<double>(0,0);
+			cameraParams["Camera.k2"] = distortionParams.at<double>(1,0);
+			cameraParams["Camera.p1"] = distortionParams.at<double>(2,0);
+			cameraParams["Camera.p2"] = distortionParams.at<double>(3,0);
+			cameraParams["Camera.k3"] = distortionParams.at<double>(4,0);
+			cameraParams["Camera.k4"] = distortionParams.at<double>(5,0);
+			cameraParams["Camera.k5"] = distortionParams.at<double>(6,0);
+			cameraParams["Camera.k6"] = distortionParams.at<double>(7,0);
+			cameraParams["Camera.s1"] = distortionParams.at<double>(8,0);
+			cameraParams["Camera.s2"] = distortionParams.at<double>(9,0);
+			cameraParams["Camera.s3"] = distortionParams.at<double>(10,0);
+			cameraParams["Camera.s4"] = distortionParams.at<double>(11,0);
+			cameraParams["Camera.taox"] = distortionParams.at<double>(12,0);
+			cameraParams["Camera.taoy"] = distortionParams.at<double>(13,0);
+
+
+
+			std::cout << "Calibration finished" << std::endl;
+
+
+
+			if(vm.count("out")){
+				std::ofstream fout(out);
+				fout << cameraParams;
+				fout.close();
+			}
 
 
 		}

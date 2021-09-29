@@ -26,6 +26,7 @@ message("YAML VERSION " ${yaml-cpp_VERSION})
 
 add_executable(${PROJECT_NAME}
 	src/main.cpp
+	src/utils.cpp
 )
 
 target_compile_options(${PROJECT_NAME}
