@@ -1,0 +1,70 @@
+#ifndef CAMERACONTAINER_HPP_BZC17YU2
+#define CAMERACONTAINER_HPP_BZC17YU2
+
+
+class CalibrationConfig{
+	public:
+		CalibrationConfig():
+	{}
+
+		~CalibrationConfig(){
+
+		}
+
+	private:
+		int operationFlags;
+
+}
+
+class CamereContainer{
+
+	public:
+		cv::Mat& getIntrinsics(){return &intrinsics;}
+		cv::Mat& getDistortionParams(){return &distortionParams;}
+
+		bool isPrismaModel(){return thinPrismaModel;}
+		bool isRationalModel(){return rationalModel;}
+		bool isTilted(){return tiltedModel;}
+
+		double getAspectRatio(){return aspectRatio;}
+		double getFocalLength(){return focalLength;}
+
+		cv::Point2f getPP(){return principalPoint;}
+
+		CamerContainer(/* inputs */):
+			 thinPrismModel()
+			, rationalModel()
+			, rationalModel()
+			, rationalModel()
+		{
+		}
+
+	CameraContainer(YAML::Node inpt);
+
+	void dumpCameraContainer();
+	void calibrateCamera(const std::vector<std::vector<cv::Point3f>> &worldPoints,
+										   const std::vector<std::vector<cv::Point2f>> &imagePoints,
+											 CalibrationConfig calibConf);
+
+	cv::Mat undistortImage(const cv::Mat &input) const;
+
+	std::vector<cv::Point2f> 
+		undistortPoints(const std::vector<cv::Point2f> &input) const;
+
+	privat:
+		cv::Mat intrinsics;
+		cv::Mat distortionParams;
+
+		bool thinPrismModel;
+		bool rationalModel;
+		bool tiltedModel;
+		double aspectRatio;
+		double focalLength;
+		cv::Point2d principalPoint;
+
+};
+
+YAML::Node createCameraCalibrationSchema();
+
+
+#endif /* end of include guard: CAMERACONTAINER_HPP_BZC17YU2 */

@@ -20,40 +20,6 @@ namespace po = boost::program_options;
 const cv::Size CHESSBOARD_SIZE = cv::Size(6, 9);
 constexpr float SQUARE_DIMENSIONS = 2.635e-2f; //meters
 
-YAML::Node createCameraCalibrationSchema()
-{
-	std::string cmra = "Camera.name: DJI AIR2S\n";
-	cmra +=	"Camera.fx: 0.0\n";
-	cmra += "Camera.fy: 0.0\n";
-	cmra += "Camera.cx: 0.0\n";
-	cmra += "Camera.cy: 0.0\n";
-
-
-	/* distortion parameters*/
-	cmra += "Camera.k1: 0.0\n";
-	cmra += "Camera.k2: 0.0\n";
-	cmra += "Camera.p1: 0.0\n";
-	cmra += "Camera.p2: 0.0\n";
-	cmra += "Camera.k3: 0.0\n";
-	cmra += "Camera.k4: 0.0\n";
-	cmra += "Camera.k5: 0.0\n";
-	cmra += "Camera.k6: 0.0\n";
-	cmra += "Camera.s1: 0.0\n";
-	cmra += "Camera.s2: 0.0\n";
-	cmra += "Camera.s3: 0.0\n";
-	cmra += "Camera.s4: 0.0\n";
-	cmra += "Camera.taox: 0.0\n";
-	cmra += "Camera.taoy: 0.0\n";
-
-	/* image sizes */
-	cmra += "Camera.widthPix: 0.0\n";
-	cmra += "Camera.heightPix: 0.0\n";
-
-	cmra += "FileInformation.DateOfCreation: 0.0\n";
-
-	return YAML::Load(cmra);
-
-}
 
 int main(int argc, char *argv[]){
 
@@ -97,18 +63,19 @@ int main(int argc, char *argv[]){
 			/* cv::namedWindow("Calibration Images", cv::WINDOW_NORMAL); */
 			std::vector<cv::Point2f> foundPoints;
 			std::vector<std::vector<cv::Point3f>> worldSpaceCornerPoints;
-			std::vector<cv::Point3f> worldCoords;
 
 
 			/* todo check this! */
 			cv::TermCriteria criteria(cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS, 30, 0.001);
 
 			bool found = false;
-			int i = 0;
+			int i = 0, added = 0;
+
 
 			for(const auto& en : fs::directory_iterator(path)){
 
 				cv::Mat image = cv::imread(en.path(), cv::IMREAD_GRAYSCALE);
+				std::vector<cv::Point3f> worldCoords;
 
 				if(i == 0){
 					cameraParams["Camera.widthPix"] = image.size[1]/2;
@@ -129,13 +96,19 @@ int main(int argc, char *argv[]){
 					allCrnrs.push_back(foundPoints);
 					createKnownBoardDim(CHESSBOARD_SIZE, SQUARE_DIMENSIONS, worldCoords);
 					worldSpaceCornerPoints.push_back(worldCoords);
+					added++;
+
+					std::cout << "size wp " << added 
+						<< " " << worldSpaceCornerPoints[added - 1].size() << std::endl;
+					std::cout << "size pb " << added 
+						<< " " << allCrnrs[added - 1].size() << std::endl;
+
 				}
 				else{
 					std::cout << "Unable to find points in image : " << en.path().filename() << std::endl;
 				}
 
 				std::cout << i++ << std::endl;
-
 			}
 
 			/* worldSpaceCornerPoints.resize(allCrnrs.size(), worldSpaceCornerPoints[0]); */
@@ -148,9 +121,12 @@ int main(int argc, char *argv[]){
 
 			std::cout << "Starting calibration!" << std::endl;
 
+			int flags = cv::CALIB_RATIONAL_MODEL | 
+				cv::CALIB_THIN_PRISM_MODEL | cv::CALIB_TILTED_MODEL;
+
 			calibrateCamera(worldSpaceCornerPoints, allCrnrs, 
 					CHESSBOARD_SIZE, cameraMatrix, distortionParams, rVectors, tVectors,
-					stdDevDistortionParams, stdDeviationExtrinsics, viewError
+					stdDevDistortionParams, stdDeviationExtrinsics, viewError, flags
 					);
 
 			cameraParams["Camera.fx"] = cameraMatrix.at<double>(0,0);
@@ -173,8 +149,6 @@ int main(int argc, char *argv[]){
 			cameraParams["Camera.taox"] = distortionParams.at<double>(12,0);
 			cameraParams["Camera.taoy"] = distortionParams.at<double>(13,0);
 
-
-
 			std::cout << "Calibration finished" << std::endl;
 
 
@@ -184,8 +158,6 @@ int main(int argc, char *argv[]){
 				fout << cameraParams;
 				fout.close();
 			}
-
-
 		}
 	}
 	catch(std::exception& e)
