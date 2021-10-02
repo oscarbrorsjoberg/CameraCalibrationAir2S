@@ -20,6 +20,9 @@ namespace fs = std::filesystem;
 namespace po = boost::program_options;
 const cv::Size CHESSBOARD_SIZE = cv::Size(6, 9);
 constexpr float SQUARE_DIMENSIONS = 2.635e-2f; //meters
+const std::string distDesc[] = {"fx", "fy", "cx", "cy", "k1", "k2", "p1", "p2", "k3", "k4", 
+				"k5", "k6", "s1", "s2", "s3", "s4", "taox", "taoy"};
+const std::string transExDesc[] = {"R0", "R1", "R2", "T0", "T1", "T2"};
 
 
 int main(int argc, char *argv[]){
@@ -56,14 +59,13 @@ int main(int argc, char *argv[]){
 
 			cv::Mat cameraMatrix = cv::Mat::eye(3, 3, CV_64F);
 			cv::Mat distortionParams = cv::Mat::zeros(14, 1, CV_64F);
-			cv::Mat stdDevDistortionParams, stdDeviationExtrinsics, viewError;
+			cv::Mat stdDevIntrinsics, stdDeviationExtrinsics, viewError;
 	    std::vector<cv::Mat> rVectors, tVectors;
 
 			std::vector<std::vector<cv::Point2f>> allCrnrs;
 
 			std::vector<cv::Point2f> foundPoints;
 			std::vector<std::vector<cv::Point3f>> worldSpaceCornerPoints;
-
 
 			/* todo check this! */
 			cv::TermCriteria criteria(cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS, 30, 0.001);
@@ -86,10 +88,9 @@ int main(int argc, char *argv[]){
 					cameraParams["Camera.heightPix"] = image.size[0]/2;
 				}
 
-				imInfo += "size x : " + std::to_string(image.size[1]/2) + " size y :" + std::to_string(image.size[0]/2) + " ";
+				imInfo += "size x: " + std::to_string(image.size[1]/2) + " size y: " + std::to_string(image.size[0]/2) + " ";
 				cv::resize(image, image, cv::Size(image.size[1]/2, 
 						image.size[0]/2), cv::INTER_AREA);
-
 
 				found = findChessboardCorners(image, CHESSBOARD_SIZE, foundPoints,
 						cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_NORMALIZE_IMAGE);
@@ -114,18 +115,19 @@ int main(int argc, char *argv[]){
 				std::tuple<bool, std::string> collectRes = std::make_tuple(found, imInfo);
 
 				imageInformation.push_back(collectRes);
-				std::cout << i++ << std::endl;
+				std::cout << i++ << std::endl; // TODO : make a progress bar
 			}
 
 
 			std::cout << "Starting calibration!" << std::endl;
 
-			int flags = cv::CALIB_RATIONAL_MODEL | 
-				cv::CALIB_THIN_PRISM_MODEL | cv::CALIB_TILTED_MODEL;
+			/* int flags = cv::CALIB_RATIONAL_MODEL | */ 
+			/* 	cv::CALIB_THIN_PRISM_MODEL | cv::CALIB_TILTED_MODEL; */
+			int flags = 0;
 
 			double rms = calibrateCamera(worldSpaceCornerPoints, allCrnrs, 
 					CHESSBOARD_SIZE, cameraMatrix, distortionParams, rVectors, tVectors,
-					stdDevDistortionParams, stdDeviationExtrinsics, viewError, flags
+					stdDevIntrinsics, stdDeviationExtrinsics, viewError, flags
 					);
 
 			cameraParams["Camera.fx"] = cameraMatrix.at<double>(0,0);
@@ -156,24 +158,43 @@ int main(int argc, char *argv[]){
 				if(std::get<0>(t)){
 
 					cv::Mat rot = rVectors.at(foundIdx);
-					cv::Mat tran = tVectors.at(foundIdx++);
+					cv::Mat tran = tVectors.at(foundIdx);
+					double partRms = viewError.at<double>(i, 0);
+					log << std::get<1>(t) << "Rotation: " << rot.at<double>(0,0) << " " <<
+						rot.at<double>(1,0) << " "<< rot.at<double>(2,0) <<
+						" Translation: " << tran.at<double>(0,0) << " " <<
+						tran.at<double>(1,0) << " " << tran.at<double>(2,1) << " viewError(rms): " 
+						<< partRms << std::endl;
 
-					std::cout << rot.size << std::endl;
-					std::cout << tran.size << std::endl;
-					log << std::get<1>(t) << std::endl;
+					log << "Trans stats: [";
+					for(int i = 0; i < 6; i++){
+						log << transExDesc[i] << ": " 
+							<< stdDeviationExtrinsics.at<double>(6*foundIdx + i, 0) << " ";
+					}
+					log << "]" << std::endl;
+
+					foundIdx++;
+
 				}
 				else{
 					log << std::get<1>(t) << std::endl;
 				}
 			}
+			log << "=== Calibration result ===" << std::endl;
+			log << "== RMS:" << rms << std::endl;
+			log << "== Standard Deviation intrinsics parameters:" << std::endl;
+
+			for(int i = 0; i < stdDevIntrinsics.size[0]; i++){
+				log << distDesc[i] << ": " << stdDevIntrinsics.at<double>(i,0) << std::endl;
+			}
+
+			log.close();
 
 			if(vm.count("out")){
 				std::ofstream fout(out);
 				fout << cameraParams;
 				fout.close();
 			}
-
-
 
 		}
 	}

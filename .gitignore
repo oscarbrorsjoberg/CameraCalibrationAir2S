@@ -40,5 +40,7 @@ build/
 *.DNG
 *.dng
 
+# general outputs
 *.yml
 *.yaml
+*.txt

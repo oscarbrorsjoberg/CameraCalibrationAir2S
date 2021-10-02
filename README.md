@@ -1,3 +1,14 @@
 # Camera Calibration OpenCV
+A small wrapper for teting out the different camera calibration methods in OpenCV.
 
-Camera calibration using openCv 4 gcc9 
+## Dependencies/Requirments
+C++17/gcc 9.4
+OpenCV VERSION 4.5.2
+Boost VERSION 1.74.0
+yaml-cpp VERSION 0.7.0
+
+## Building
+
+
+## How to use
+TODO

@@ -1,15 +1,27 @@
 cmake_minimum_required(VERSION 3.11)
 project(CameraCalibration VERSION 1.0.0)
 
-find_package(OpenCV REQUIRED)
-find_package(Boost REQUIRED COMPONENTS
-	program_options
-)
 
+find_package(OpenCV 4.5 REQUIRED)
+find_package(Boost REQUIRED COMPONENTS
+	program_options)
 find_package(yaml-cpp REQUIRED)
 
 
 # set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+
+macro(Depender depender)
+	if(NOT ${depender}_FOUND)
+		message(FATAL_ERROR "Camera calibration requires ${depender}")
+	else()
+		message("${depender} VERSION " ${${depender}_VERSION})
+	endif()
+endmacro()
+
+
+Depender(OpenCV)
+Depender(Boost)
+Depender(yaml-cpp)
 
 set(build_flags #APPEND
  "-std=c++17"
@@ -20,13 +32,10 @@ set(build_flags #APPEND
 )
 
 
-message("OpenCV VERSION " ${OpenCV_VERSION})
-message("Boost VERSION " ${Boost_VERSION})
-message("YAML VERSION " ${yaml-cpp_VERSION})
-
 add_executable(${PROJECT_NAME}
 	src/main.cpp
 	src/utils.cpp
+	src/CameraContainer.cpp
 )
 
 target_compile_options(${PROJECT_NAME}
@@ -39,4 +48,4 @@ target_link_libraries(${PROJECT_NAME}
 	${OpenCV_LIBS}
 	Boost::program_options
 	yaml-cpp
-	)
+)
