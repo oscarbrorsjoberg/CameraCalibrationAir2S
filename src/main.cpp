@@ -54,6 +54,7 @@ int main(int argc, char *argv[]){
 		else{
 
 			YAML::Node cameraParams = createCameraCalibrationSchema();
+
 			/* todo : functionalize*/
 			/* cv::Mat image, canvass; */
 
@@ -97,6 +98,9 @@ int main(int argc, char *argv[]){
 
 				if(found){
 
+					cv::Scalar scales = estimateChessboardSharpness(image, CHESSBOARD_SIZE, foundPoints); 
+					std::cout << en.path() << std::endl;
+					std::cout << scales << std::endl;
 					cv::cornerSubPix(image, foundPoints, cv::Size(11, 11), cv::Size(-1, -1), criteria);
 
 					allCrnrs.push_back(foundPoints);
