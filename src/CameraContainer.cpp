@@ -4,3 +4,7 @@
 #include <opencv2/imgproc.hpp>
 
 #include <yaml-cpp/yaml.h>
+
+#include "CameraContainer.hpp"
+
+

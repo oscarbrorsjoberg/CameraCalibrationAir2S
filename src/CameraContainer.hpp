@@ -1,26 +1,23 @@
 #ifndef CAMERACONTAINER_HPP_BZC17YU2
 #define CAMERACONTAINER_HPP_BZC17YU2
 
-
 class CalibrationConfig{
 	public:
-		CalibrationConfig():
-	{}
-
-		~CalibrationConfig(){
-
-		}
+		CalibrationConfig();
+		~CalibrationConfig();
 
 	private:
 		int operationFlags;
 
-}
+};
 
-class CamereContainer{
+class CameraContainer{
 
 	public:
-		cv::Mat& getIntrinsics(){return &intrinsics;}
-		cv::Mat& getDistortionParams(){return &distortionParams;}
+		const cv::Mat& getIntrinsics() const 
+		{return intrinsics;} 
+		const cv::Mat& getDistortionParams() const
+		{return distortionParams;}
 
 		bool isPrismaModel(){return thinPrismaModel;}
 		bool isRationalModel(){return rationalModel;}
@@ -31,13 +28,7 @@ class CamereContainer{
 
 		cv::Point2f getPP(){return principalPoint;}
 
-		CamerContainer(/* inputs */):
-			 thinPrismModel()
-			, rationalModel()
-			, rationalModel()
-			, rationalModel()
-		{
-		}
+		CameraContainer();
 
 	CameraContainer(YAML::Node inpt);
 
@@ -51,11 +42,11 @@ class CamereContainer{
 	std::vector<cv::Point2f> 
 		undistortPoints(const std::vector<cv::Point2f> &input) const;
 
-	privat:
+	private:
 		cv::Mat intrinsics;
 		cv::Mat distortionParams;
 
-		bool thinPrismModel;
+		bool thinPrismaModel;
 		bool rationalModel;
 		bool tiltedModel;
 		double aspectRatio;

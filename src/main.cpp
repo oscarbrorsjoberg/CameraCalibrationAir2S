@@ -14,6 +14,7 @@
 #include <filesystem>
 
 #include "utils.hpp"
+#include "CameraContainer.hpp"
 
 namespace fs = std::filesystem;
 namespace po = boost::program_options;
@@ -24,7 +25,7 @@ constexpr float SQUARE_DIMENSIONS = 2.635e-2f; //meters
 int main(int argc, char *argv[]){
 
 	try{
-		std::string path, out, conf;
+		std::string path, out, conf, log_path = "log.txt";
 		po::options_description opt("CameraCalibration options");
 
 		opt.add_options()
@@ -60,7 +61,6 @@ int main(int argc, char *argv[]){
 
 			std::vector<std::vector<cv::Point2f>> allCrnrs;
 
-			/* cv::namedWindow("Calibration Images", cv::WINDOW_NORMAL); */
 			std::vector<cv::Point2f> foundPoints;
 			std::vector<std::vector<cv::Point3f>> worldSpaceCornerPoints;
 
@@ -71,17 +71,22 @@ int main(int argc, char *argv[]){
 			bool found = false;
 			int i = 0, added = 0;
 
+			std::vector<std::tuple<bool, std::string>> imageInformation;
+
 
 			for(const auto& en : fs::directory_iterator(path)){
 
 				cv::Mat image = cv::imread(en.path(), cv::IMREAD_GRAYSCALE);
 				std::vector<cv::Point3f> worldCoords;
+				
+				std::string imInfo = "File " + std::to_string(i) + ": " + en.path().u8string() + " ";
 
 				if(i == 0){
 					cameraParams["Camera.widthPix"] = image.size[1]/2;
 					cameraParams["Camera.heightPix"] = image.size[0]/2;
 				}
 
+				imInfo += "size x : " + std::to_string(image.size[1]/2) + " size y :" + std::to_string(image.size[0]/2) + " ";
 				cv::resize(image, image, cv::Size(image.size[1]/2, 
 						image.size[0]/2), cv::INTER_AREA);
 
@@ -98,33 +103,27 @@ int main(int argc, char *argv[]){
 					worldSpaceCornerPoints.push_back(worldCoords);
 					added++;
 
-					std::cout << "size wp " << added 
-						<< " " << worldSpaceCornerPoints[added - 1].size() << std::endl;
-					std::cout << "size pb " << added 
-						<< " " << allCrnrs[added - 1].size() << std::endl;
+
+					imInfo += "world points: " + std::to_string(worldSpaceCornerPoints[added - 1].size()) + " "; 
+					imInfo += "image points: " + std::to_string(allCrnrs[added - 1].size()) + " "; 
 
 				}
 				else{
-					std::cout << "Unable to find points in image : " << en.path().filename() << std::endl;
+					imInfo += "image points: 0 world points: 0";
 				}
+				std::tuple<bool, std::string> collectRes = std::make_tuple(found, imInfo);
 
+				imageInformation.push_back(collectRes);
 				std::cout << i++ << std::endl;
 			}
 
-			/* worldSpaceCornerPoints.resize(allCrnrs.size(), worldSpaceCornerPoints[0]); */
-
-			std::cout << "size wp " << worldSpaceCornerPoints.size() << std::endl;
-			std::cout << "size pb " << allCrnrs.size() << std::endl;
-
-			std::cout << "size wp " << worldSpaceCornerPoints.at(0).size() << std::endl;
-			std::cout << "size pb " << allCrnrs.at(0).size() << std::endl;
 
 			std::cout << "Starting calibration!" << std::endl;
 
 			int flags = cv::CALIB_RATIONAL_MODEL | 
 				cv::CALIB_THIN_PRISM_MODEL | cv::CALIB_TILTED_MODEL;
 
-			calibrateCamera(worldSpaceCornerPoints, allCrnrs, 
+			double rms = calibrateCamera(worldSpaceCornerPoints, allCrnrs, 
 					CHESSBOARD_SIZE, cameraMatrix, distortionParams, rVectors, tVectors,
 					stdDevDistortionParams, stdDeviationExtrinsics, viewError, flags
 					);
@@ -151,13 +150,31 @@ int main(int argc, char *argv[]){
 
 			std::cout << "Calibration finished" << std::endl;
 
+			std::ofstream log(log_path);
+			int foundIdx = 0;
+			for(auto &t : imageInformation){
+				if(std::get<0>(t)){
 
+					cv::Mat rot = rVectors.at(foundIdx);
+					cv::Mat tran = tVectors.at(foundIdx++);
+
+					std::cout << rot.size << std::endl;
+					std::cout << tran.size << std::endl;
+					log << std::get<1>(t) << std::endl;
+				}
+				else{
+					log << std::get<1>(t) << std::endl;
+				}
+			}
 
 			if(vm.count("out")){
 				std::ofstream fout(out);
 				fout << cameraParams;
 				fout.close();
 			}
+
+
+
 		}
 	}
 	catch(std::exception& e)
