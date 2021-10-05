@@ -1,14 +1,31 @@
-# Camera Calibration OpenCV
-A small wrapper for teting out the different camera calibration methods in OpenCV.
+# Camera Calibration toolbox wrapping OpenCV
+A small wrapper for testing out the different camera calibration methods in OpenCV.
 
 ## Dependencies/Requirments
-C++17/gcc 9.4
-OpenCV VERSION 4.5.2
-Boost VERSION 1.74.0
-yaml-cpp VERSION 0.7.0
+
+1. C++17/gcc 9.4
+2. OpenCV VERSION 4.5.2
+3. Boost VERSION 1.74.0
+4. yaml-cpp VERSION 0.7.0
 
 ## Building
 
+Using standard cmake procedure:
+
+```
+mkdir build
+cd build
+cmake <path/to/CameraCalbration>
+make
+```
 
 ## How to use
-TODO
+
+The toolbox contains two separate binaries:
+CameraCalibration and CameraUndistort.
+
+
+### CameraCalibration
+
+
+### CameraUndistort

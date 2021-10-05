@@ -18,8 +18,11 @@
 
 namespace fs = std::filesystem;
 namespace po = boost::program_options;
+
 const cv::Size CHESSBOARD_SIZE = cv::Size(6, 9);
 constexpr float SQUARE_DIMENSIONS = 2.635e-2f; //meters
+constexpr int NUMBR_TRANSFORM_STDDEV = 6;
+
 const std::string distDesc[] = {"fx", "fy", "cx", "cy", "k1", "k2", "p1", "p2", "k3", "k4", 
 				"k5", "k6", "s1", "s2", "s3", "s4", "taox", "taoy"};
 const std::string transExDesc[] = {"R0", "R1", "R2", "T0", "T1", "T2"};
@@ -171,9 +174,9 @@ int main(int argc, char *argv[]){
 						<< partRms << std::endl;
 
 					log << "Trans stats: [";
-					for(int i = 0; i < 6; i++){
+					for(int i = 0; i < NUMBR_TRANSFORM_STDDEV; i++){
 						log << transExDesc[i] << ": " 
-							<< stdDeviationExtrinsics.at<double>(6*foundIdx + i, 0) << " ";
+							<< stdDeviationExtrinsics.at<double>(NUMBR_TRANSFORM_STDDEV*foundIdx + i, 0) << " ";
 					}
 					log << "]" << std::endl;
 
