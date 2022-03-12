@@ -24,8 +24,11 @@ make
 The toolbox contains two separate binaries:
 CameraCalibration and CameraUndistort.
 
-
 ### CameraCalibration
+
+Place good links here!
 
 
 ### CameraUndistort
+
+Explain some stuff here!
