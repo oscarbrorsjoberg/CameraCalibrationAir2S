@@ -14,13 +14,14 @@
 #include <filesystem>
 
 #include "utils.hpp"
-#include "CameraContainer.hpp"
+#include "camera.hpp"
 
 namespace fs = std::filesystem;
 namespace po = boost::program_options;
 
 // TODO: put in config file!
 //
+
 const cv::Size CHESSBOARD_SIZE = cv::Size(6, 9);
 constexpr float SQUARE_DIMENSIONS = 2.635e-2f; //meters
 constexpr int NUMBR_TRANSFORM_STDDEV = 6;

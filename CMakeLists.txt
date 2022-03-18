@@ -8,7 +8,7 @@ find_package(Boost REQUIRED COMPONENTS
 find_package(yaml-cpp REQUIRED)
 
 
-# set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 
 macro(Depender depender)
 	if(NOT ${depender}_FOUND)
@@ -35,12 +35,17 @@ set(build_flags #APPEND
 add_executable(${PROJECT_NAME}
 	src/main.cpp
 	src/utils.cpp
-	src/CameraContainer.cpp
+	src/camera.cpp
 )
 
 target_compile_options(${PROJECT_NAME}
 	PUBLIC
 	${build_flags}
+)
+
+target_include_directories(${PROJECT_NAME}
+	PUBLIC
+	${CMAKE_CURRENT_SOURCE_DIR}/src/
 )
 
 target_link_libraries(${PROJECT_NAME}

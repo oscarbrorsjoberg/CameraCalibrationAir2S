@@ -1,9 +1,12 @@
 #include <sstream>
+#include <fstream>
 #include <iomanip>
+#include <iostream>
 #include <ctime>
 #include <chrono>
 #include <vector>
 #include <array>
+#include <functional>
 
 #include <opencv2/core.hpp>
 #include <opencv2/calib3d.hpp>
@@ -13,85 +16,86 @@
 #include <yaml-cpp/yaml.h>
 
 
-#include "Camera.hpp"
+#include "camera.hpp"
 
-using  chsys = chrono::system_clock ;
-
+using chsys = std::chrono::system_clock;
 
 static std::map<std::string, int> calibrationFlags_m;
 static std::map<std::string, int> pointFlags_m;
 
-static const std::array<std::tuple<std::string, int>, 16> posCalibrationFlags =
-{
+
+static const std::array< 
+								std::tuple<std::string, int>, 15
+								> posCalibrationFlags {
 // cameraMatrix contains valid initial values of fx, fy, cx, cy that are optimized further. Otherwise, (cx, cy) is initially set to the image center ( imageSize is used), and focal distances are computed in a least-squares fashion. Note, that if intrinsic parameters are known, there is no need to use this function just to estimate extrinsic parameters. Use solvePnP instead.
-{"cv::CALIB_USE_INTRINSIC_GUESS", cv::CALIB_USE_INTRINSIC_GUESS},
+std::make_tuple("cv::CALIB_USE_INTRINSIC_GUESS", cv::CALIB_USE_INTRINSIC_GUESS),
 
 // The principal point is not changed during the global optimization. It stays at the center or at a different location specified when CALIB_USE_INTRINSIC_GUESS is set too.
-{"cv::CALIB_FIX_PRINCIPAL_POINT", cv::CALIB_FIX_PRINCIPAL_POINT},
+std::make_tuple("cv::CALIB_FIX_PRINCIPAL_POINT", cv::CALIB_FIX_PRINCIPAL_POINT),
 
 // The functions consider only fy as a free parameter. The ratio fx/fy stays the same as in the input cameraMatrix . When CALIB_USE_INTRINSIC_GUESS is not set, the actual input values of fx and fy are ignored, only their ratio is computed and used further.
-{"cv::CALIB_FIX_ASPECT_RATIO", cv::CALIB_FIX_ASPECT_RATIO},
+std::make_tuple("cv::CALIB_FIX_ASPECT_RATIO", cv::CALIB_FIX_ASPECT_RATIO),
 // Tangential distortion coefficients (p1,p2) are set to zeros and stay zero.
-{"cv::CALIB_ZERO_TANGENT_DIST", cv::CALIB_ZERO_TANGENT_DIST},
+std::make_tuple("cv::CALIB_ZERO_TANGENT_DIST", cv::CALIB_ZERO_TANGENT_DIST),
 
 // The corresponding radial distortion coefficient is not changed during the optimization. If CALIB_USE_INTRINSIC_GUESS is set, the coefficient from the supplied distCoeffs matrix is used. Otherwise, it is set to 0.
-{"cv::CALIB_FIX_K1", cv::CALIB_FIX_K1},
-{"cv::CALIB_FIX_K2", cv::CALIB_FIX_K2}, 
-{"cv::CALIB_FIX_K3", cv::CALIB_FIX_K3}, 
-{"cv::CALIB_FIX_K4", cv::CALIB_FIX_K4}, 
-{"cv::CALIB_FIX_K5", cv::CALIB_FIX_K5}, 
-{"cv::CALIB_FIX_K6", cv::CALIB_FIX_K6}, 
+std::make_tuple("cv::CALIB_FIX_K1", cv::CALIB_FIX_K1),
+std::make_tuple("cv::CALIB_FIX_K2", cv::CALIB_FIX_K2),
+std::make_tuple("cv::CALIB_FIX_K3", cv::CALIB_FIX_K3),
+std::make_tuple("cv::CALIB_FIX_K4", cv::CALIB_FIX_K4),
+std::make_tuple("cv::CALIB_FIX_K5", cv::CALIB_FIX_K5),
+std::make_tuple("cv::CALIB_FIX_K6", cv::CALIB_FIX_K6),
 // Coefficients k4, k5, and k6 are enabled. To provide the backward compatibility, this extra flag should be explicitly specified to make the calibration function use the rational model and return 8 coefficients. If the flag is not set, the function computes and returns only 5 distortion coefficients.
-{"cv::CALIB_RATIONAL_MODEL", cv::CALIB_RATIONAL_MODEL},
+std::make_tuple("cv::CALIB_RATIONAL_MODEL", cv::CALIB_RATIONAL_MODEL),
 
 //Coefficients s1, s2, s3 and s4 are enabled. To provide the backward compatibility, this extra flag should be explicitly specified to make the calibration function use the thin prism model and return 12 coefficients. If the flag is not set, the function computes and returns only 5 distortion coefficients.
 
-{"cv::CALIB_THIN_PRISM_MODEL", cv::CALIB_THIN_PRISM_MODEL},
+std::make_tuple("cv::CALIB_THIN_PRISM_MODEL", cv::CALIB_THIN_PRISM_MODEL),
 
 //The thin prism distortion coefficients are not changed during the optimization. If CALIB_USE_INTRINSIC_GUESS is set, the coefficient from the supplied distCoeffs matrix is used. Otherwise, it is set to 0.
-	{"cv::CALIB_FIX_S1_S2_S3_S4", cv::CALIB_FIX_S1_S2_S3_S4},
+	std::make_tuple("cv::CALIB_FIX_S1_S2_S3_S4", cv::CALIB_FIX_S1_S2_S3_S4),
 //Coefficients tauX and tauY are enabled. To provide the backward compatibility, this extra flag should be explicitly specified to make the calibration function use the tilted sensor model and return 14 coefficients. If the flag is not set, the function computes and returns only 5 distortion coefficients.
-{"cv::CALIB_TILTED_MODEL", cv::CALIB_TILTED_MODEL},
+std::make_tuple("cv::CALIB_TILTED_MODEL", cv::CALIB_TILTED_MODEL),
 //The coefficients of the tilted sensor model are not changed during the optimization. If CALIB_USE_INTRINSIC_GUESS is set, the coefficient from the supplied distCoeffs matrix is used. Otherwise, it is set to 0.
-{"cv::CALIB_FIX_TAUX_TAUY", cv::CALIB_FIX_TAUX_TAUY}
+std::make_tuple("cv::CALIB_FIX_TAUX_TAUY", cv::CALIB_FIX_TAUX_TAUY)
+
 };
 
-static const std::array<std::tuple<std::string, int>, 11> posPointFlags =
-{
+static const std::array<std::tuple<std::string, int>, 11> posPointFlags{
 	// Use adaptive thresholding to convert the image to black and white, rather than a fixed threshold level (computed from the average image brightness).
-	{"cv::CALIB_CB_ADAPTIVE_THRESH", cv::CALIB_CB_ADAPTIVE_THRESH},
+	std::make_tuple("cv::CALIB_CB_ADAPTIVE_THRESH", cv::CALIB_CB_ADAPTIVE_THRESH),
 
 // Use additional criteria (like contour area, perimeter, square-like shape) to filter out false quads extracted at the contour retrieval stage.
-	{"cv::CALIB_CB_FILTER_QUADS", cv::CALIB_CB_FILTER_QUADS},
+	std::make_tuple("cv::CALIB_CB_FILTER_QUADS", cv::CALIB_CB_FILTER_QUADS),
 
 // Run a fast check on the image that looks for chessboard corners, and shortcut the call if none is found. This can drastically speed up the call in the degenerate condition when no chessboard is observed.
-{"cv::CALIB_CB_FAST_CHECK", cv::CALIB_CB_FAST_CHECK},
+std::make_tuple("cv::CALIB_CB_FAST_CHECK", cv::CALIB_CB_FAST_CHECK),
 
 // Normalize the image gamma with equalizeHist before detection.
-{"cv::CALIB_CB_NORMALIZE_IMAGE", cv::CALIB_CB_NORMALIZE_IMAGE},
+std::make_tuple("cv::CALIB_CB_NORMALIZE_IMAGE", cv::CALIB_CB_NORMALIZE_IMAGE),
 
 // Run an exhaustive search to improve detection rate.
-{"cv::CALIB_CB_EXHAUSTIVE", cv::CALIB_CB_EXHAUSTIVE},
+std::make_tuple("cv::CALIB_CB_EXHAUSTIVE", cv::CALIB_CB_EXHAUSTIVE),
 
 // Up sample input image to improve sub-pixel accuracy due to aliasing effects.
-{"cv::CALIB_CB_ACCURACY", cv::CALIB_CB_ACCURACY},
+std::make_tuple("cv::CALIB_CB_ACCURACY", cv::CALIB_CB_ACCURACY),
 
 // The detected pattern is allowed to be larger than patternSize (see description).
-{"cv::CALIB_CB_LARGER", cv::CALIB_CB_LARGER},
+std::make_tuple("cv::CALIB_CB_LARGER", cv::CALIB_CB_LARGER),
 
 // The detected pattern must have a marker (see description). This should be used if an accurate camera calibration is required.
-{"cv::CALIB_CB_MARKER", cv::CALIB_CB_MARKER},
+std::make_tuple("cv::CALIB_CB_MARKER", cv::CALIB_CB_MARKER),
 
 	// uses symmetric pattern of circles.
-{"cv::CALIB_CB_SYMMETRIC_GRID", cv::CALIB_CB_SYMMETRIC_GRID}, 
+std::make_tuple("cv::CALIB_CB_SYMMETRIC_GRID", cv::CALIB_CB_SYMMETRIC_GRID),
 
 // uses asymmetric pattern of circles.
-{"cv::CALIB_CB_ASYMMETRIC_GRID", cv::CALIB_CB_ASYMMETRIC_GRID},
+std::make_tuple("cv::CALIB_CB_ASYMMETRIC_GRID", cv::CALIB_CB_ASYMMETRIC_GRID),
 
 	// uses a special algorithm for grid detection. 
 	// It is more robust to perspective distortions but much 
 	// more sensitive to background clutter.
-{"cv::CALIB_CB_CLUSTERING", cv::CALIB_CB_CLUSTERING}
+std::make_tuple("cv::CALIB_CB_CLUSTERING", cv::CALIB_CB_CLUSTERING)
 };
 
 
@@ -99,58 +103,92 @@ static const std::array<std::tuple<std::string, int>, 11> posPointFlags =
 static void initFlagsMaps()
 {
 
-	for(const auto &[f, s] : posPointFlags){
+	for(const auto &[f, m] : posPointFlags){
 		pointFlags_m[f] = m;
 	}
 
-	for(const auto &[f, s] : posCalibrationFlags){
+	for(const auto &[f, m] : posCalibrationFlags){
 		calibrationFlags_m[f] = m;
 	}
 
 }
 
 
-
-CalibrationConfig::CalibrationConfig(YAML::Node &config):
-	criteria(cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS, 30, 0.001)
+CalibrationConfig::CalibrationConfig(const YAML::Node &config):
+	crit(cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS, 30, 0.001)
 
 {
 
-	initFlagMaps();
+	initFlagsMaps();
 
-	for( const auto &fl : calibConfig["CalibrationFlags"].as<std::vector<std::string>>)
+
+	for( const auto &fl : config["CalibrationFlags"].as<std::vector<std::string>>())
 		operationFlags |= calibrationFlags_m[fl];
 
 	// try if not in
-	for( const auto &fl : calibConfig["PointFlags"].as<std::vector<std::string>>;)
+	for( const auto &fl : config["PointFlags"].as<std::vector<std::string>>())
 		pointFlags |= pointFlags_m[fl];
 
-	std::string calibType = calibConfig["CalibrationType"].as<std::string>();
-	std::string pointType = calibConfig["PointType"].as<std::string>();
+	std::string calibType = config["CalibrationType"].as<std::string>();
+	std::string pointType = config["PointType"].as<std::string>();
 
 	// does this work or does it have to be dynamic?
-	int size[2] = calibConfig["PatternSize"].as<int[2]>();
-	this->patternSize(size[0], size[1]);
+	std::array<int, 2> size = config["PatternSize"].as<std::array<int, 2>>();
+	this->ps = cv::Size(size[0], size[1]);
 
 	assert((!calibType.empty() && (calibType == "REGULAR" || calibType == "RO")
-				, "Calib Type is required!");
+				, "Calib Type is required!"));
 	assert((!pointType.empty() && 
 			(pointType == "CIRCLE" || pointType == "CHESS" 
-			 || pointType == "SB_CHESS"), "Point Type is required!");
+			 || pointType == "SB_CHESS"), "Point Type is required!"));
 
 	if(pointType == "CIRCLE"){
-		findPoints = std::bind(cv::findCirclesGrid,
-														_1, this->patternSize, _2, this->pointFlags);
+
+		using F = bool(*)(
+				cv::InputArray,
+				cv::Size,
+				cv::OutputArray,
+				int,
+				const cv::Ptr<cv::FeatureDetector>&
+				);
+
+		findPoints = std::bind(static_cast<F>(cv::findCirclesGrid), 
+				std::placeholders::_1, 
+				this->ps, 
+				std::placeholders::_2, 
+				this->pointFlags,
+				cv::SimpleBlobDetector::create()
+				);
+
+
 		pt = PointType::C_CIRCLES;
 	}
 	else if(pointType == "CHESS"){
-		findPoints = std::bind(cv::findChessBoardCorners,
-														_1, this->patternSize, _2, this->pointFlags);
+		findPoints = std::bind(cv::findChessboardCorners, 
+				std::placeholders::_1, 
+				this->ps, 
+				std::placeholders::_2, 
+				this->pointFlags
+				);
+
 		pt = PointType::C_CHESS;
 	}
 	else if(pointType == "SB_CHESS"){
-		findPoints = std::bind(cv::findChessBoardCornersSB,
-														_1, this->patternSize, _2, this->pointFlags, cv::noArray());
+
+		using G = bool(*)(
+				cv::InputArray,
+				cv::Size,
+				cv::OutputArray,
+				int
+				);
+
+		findPoints = std::bind(static_cast<G>(cv::findChessboardCornersSB),
+				std::placeholders::_1, 
+				this->ps, 
+				std::placeholders::_2, 
+				this->pointFlags
+				);
+
 		pt = PointType::C_SB_CHESS;
 		// TODO: check no Array
 
@@ -205,62 +243,63 @@ static std::string loadCameraSchema(const std::string &name)
 }
 
 
-bool write(const std::string &output)
+bool Camera::write(const std::string &output)
 {
 	std::ofstream fout(output);
 
-	YAML::Node temp = YAML::Load(loadCameraSchema(name));
+	YAML::Node temp = YAML::Load(loadCameraSchema(name_));
 
 
 	chsys::time_point p = chsys::now();
 	time_t t = chsys::to_time_t(p);
+
 	char str[26];
-	ctime_s(str, sizeof(str), &t);
+	ctime_r(&t, str);
 
 
-	cameraParams["Camera.fx"] = this->cameraMatrix.at<double>(0,0);
-	cameraParams["Camera.fy"] = this->cameraMatrix.at<double>(1,1);
-	cameraParams["Camera.cx"] = this->cameraMatrix.at<double>(0,2);
-	cameraParams["Camera.cy"] = this->cameraMatrix.at<double>(1,2);
-	cameraParams["Camera.k1"] = this->distortionParams.at<double>(0,0);
-	cameraParams["Camera.k2"] = this->distortionParams.at<double>(1,0);
-	cameraParams["Camera.p1"] = this->distortionParams.at<double>(2,0);
-	cameraParams["Camera.p2"] = this->distortionParams.at<double>(3,0);
-	cameraParams["Camera.k3"] = this->distortionParams.at<double>(4,0);
-	cameraParams["Camera.k4"] = this->distortionParams.at<double>(5,0);
-	cameraParams["Camera.k5"] = this->distortionParams.at<double>(6,0);
-	cameraParams["Camera.k6"] = this->distortionParams.at<double>(7,0);
-	cameraParams["Camera.s1"] = this->distortionParams.at<double>(8,0);
-	cameraParams["Camera.s2"] = this->distortionParams.at<double>(9,0);
-	cameraParams["Camera.s3"] = this->distortionParams.at<double>(10,0);
-	cameraParams["Camera.s4"] = this->distortionParams.at<double>(11,0);
-	cameraParams["Camera.taox"] = this->distortionParams.at<double>(12,0);
-	cameraParams["Camera.taoy"] = this->distortionParams.at<double>(13,0);
+	temp["Camera.fx"] = this->intrinsics.at<double>(0,0);
+	temp["Camera.fy"] = this->intrinsics.at<double>(1,1);
+	temp["Camera.cx"] = this->intrinsics.at<double>(0,2);
+	temp["Camera.cy"] = this->intrinsics.at<double>(1,2);
+	temp["Camera.k1"] = this->distortionParams.at<double>(0,0);
+	temp["Camera.k2"] = this->distortionParams.at<double>(1,0);
+	temp["Camera.p1"] = this->distortionParams.at<double>(2,0);
+	temp["Camera.p2"] = this->distortionParams.at<double>(3,0);
+	temp["Camera.k3"] = this->distortionParams.at<double>(4,0);
+	temp["Camera.k4"] = this->distortionParams.at<double>(5,0);
+	temp["Camera.k5"] = this->distortionParams.at<double>(6,0);
+	temp["Camera.k6"] = this->distortionParams.at<double>(7,0);
+	temp["Camera.s1"] = this->distortionParams.at<double>(8,0);
+	temp["Camera.s2"] = this->distortionParams.at<double>(9,0);
+	temp["Camera.s3"] = this->distortionParams.at<double>(10,0);
+	temp["Camera.s4"] = this->distortionParams.at<double>(11,0);
+	temp["Camera.taox"] = this->distortionParams.at<double>(12,0);
+	temp["Camera.taoy"] = this->distortionParams.at<double>(13,0);
 
-	cameraParams["FileInformation.DateOfCreation"] = str;
+	temp["FileInformation.DateOfCreation"] = str;
 
 	if(fout.is_open() && fout.good()){
 		fout << temp;
 	}
 	fout.close();
+
+	return true;
 }
 
-Camera::Camera(const std::string &camName):
-	name(camName),
-	cameraMatrix{cv::Mat::eye(3, 3, CV_64F)},
-	distortionParams(cv::Mat::zeros(14, 1, CV_64F))
-{
+/* Camera::Camera(const std::string &camName): */
+/* 	name(camName), */
+/* 	cameraMatrix{cv::Mat::eye(3, 3, CV_64F)}, */
+/* 	distortionParams{cv::Mat::zeros(14, 1, CV_64F)} */
+/* { */
+/* } */
 
-}
 
-
-double CameraContainer::
-calibrateCamera(const std::vector<vecp3f> &worldPoints,
+double Camera::calibrateCamera(const std::vector<vecp3f> &worldPoints,
 								const std::vector<vecp2f> &imagePoints,
-								const CalibrationConfig calibConf)
+								const CalibrationConfig &calibConf)
 {
 
-	calibrated = true;
+	this->calibrated_ = true;
 
 	// TODO: this can be two different functions!
 	switch(calibConf.calibType()){
@@ -268,25 +307,25 @@ calibrateCamera(const std::vector<vecp3f> &worldPoints,
 			return cv::calibrateCamera(
 					worldPoints, 
 					imagePoints, 
-					cv::Size(this->pixWidth, this->pixHeight), 
-					this->cameraMatrix, 
+					cv::Size(this->pixWidth_, this->pixHeight_), 
+					this->intrinsics, 
 					this->distortionParams, 
 					this->CalibrationStat.rVectors, 
 					this->CalibrationStat.tVectors,
 					this->CalibrationStat.stdDevIntrinsics, 
 					this->CalibrationStat.stdDeviationExtrinsics, 
 					this->CalibrationStat.viewError, 
-					calibConfig.flags(),
-					calibConfig.criteria()
+					calibConf.flags(),
+					calibConf.criteria()
 					);
 			break;
 		case CalibType::RO:
 			return cv::calibrateCameraRO(
 					worldPoints, 
 					imagePoints, 
-					cv::Size(this->pixWidth, this->pixHeight), 
-					calibConfig.fixedPoint(),
-					this->cameraMatrix, 
+					cv::Size(this->pixWidth_, this->pixHeight_), 
+					calibConf.fixedPoint(),
+					this->intrinsics, 
 					this->distortionParams, 
 					this->CalibrationStat.rVectors, 
 					this->CalibrationStat.tVectors,
@@ -294,14 +333,14 @@ calibrateCamera(const std::vector<vecp3f> &worldPoints,
 					/* this->CalibrationStat.newObjPoints, */
 					this->CalibrationStat.stdDevIntrinsics, 
 					this->CalibrationStat.stdDeviationExtrinsics, 
+					cv::noArray(), // could try to use this later
 					this->CalibrationStat.viewError, 
-					calibConfig.flags(),
-					calibConfig.criteria()
+					calibConf.flags(),
+					calibConf.criteria()
 					);
 			break;
 		default:
-			throw std::runtime_error("Unknown ");
+			throw std::runtime_error("Unknown type");
 			break;
 	}
-
 }
