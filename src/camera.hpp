@@ -41,7 +41,9 @@ class CalibrationConfig{
 		std::function<bool(const cv::Mat &im, vecp2f &foundPoints)> findPoints;
 
 
-		int flags() const {return operationFlags;}
+		int oflags() const {return operationFlags;}
+		int pflags() const {return pointFlags;}
+
 		int fixedPoint() const {return fp;}
 		CalibType calibType() const {return ct;}
 		PointType pointType() const {return pt;}
@@ -51,9 +53,6 @@ class CalibrationConfig{
 
 		// handle this?
 		cv::Size patternSize(){return ps;}
-
-		cv::CirclesGridFinderParameters parameters;
-		cv::Ptr<cv::FeatureDetector> blob_;
 
 	private:
 
@@ -93,7 +92,7 @@ class Camera {
 
 		cv::Point2f getPP() const {return principalPoint_;}
 
-		Camera(const std::string &name) noexcept;
+		Camera(const std::string &name);
 		/* Camera(): */
 		/* { */
 		/* } */
@@ -110,7 +109,7 @@ class Camera {
 
 		bool write(const std::string &output);
 
-		double calibrateCamera(const std::vector<vecp3f> &worldPoints,
+		double calibrate(const std::vector<vecp3f> &worldPoints,
 				const std::vector<vecp2f> &imagePoints,
 				const CalibrationConfig &calibConf);
 

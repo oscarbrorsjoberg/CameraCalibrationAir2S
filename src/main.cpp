@@ -22,9 +22,10 @@ namespace po = boost::program_options;
 // TODO: put in config file!
 //
 
-const cv::Size CHESSBOARD_SIZE = cv::Size(6, 9);
-constexpr float SQUARE_DIMENSIONS = 2.635e-2f; //meters
-constexpr int NUMBR_TRANSFORM_STDDEV = 6;
+/* const cv::Size CHESSBOARD_SIZE = cv::Size(6, 9); */
+/* constexpr float SQUARE_DIMENSIONS = 2.635e-2f; //meters */
+
+/* constexpr int NUMBR_TRANSFORM_STDDEV = 6; */
 
 const std::string distDesc[] = {"fx", "fy", "cx", "cy", "k1", "k2", "p1", "p2", "k3", "k4", 
 				"k5", "k6", "s1", "s2", "s3", "s4", "taox", "taoy"};
@@ -36,20 +37,24 @@ bool read_cmd_line(int argc, char *argv[],
 {
 	po::options_description opt("CameraCalibration options");
 
+
+
 	opt.add_options()
+		("help,h", "produce help message")
 		("path,p", po::value<std::string>(&impath)->required(), "path to images")
 		("conf,c", po::value<std::string>(&conf)->required(), "configuration file")
 		("out,o", po::value<std::string>(&out)->required(), "out camera parameters in .yml")
-		("help,h", "produce help message")
 		;
 
 	po::variables_map vm;
 	po::store(po::command_line_parser(argc, argv).options(opt).run(), vm);
-	po::notify(vm);
+
 	if(vm.count("help")){
 		std::cout << opt << std::endl;
 		return false;
 	}
+
+	po::notify(vm);
 	return true;
 }
 
@@ -60,10 +65,12 @@ int main(int argc, char *argv[])
 	try{
 		std::string impath, out, conf; 
 
-		read_cmd_line(argc, argv, impath, conf, out);
+		if(!read_cmd_line(argc, argv, impath, conf, out)){
+			return 0;
+		}
 
-		assert(fs::path(out).extension() == "yml");
-		assert(fs::path(conf).extension() == "yml");
+		assert(fs::path(out).extension() == ".yml");
+		assert(fs::path(conf).extension() == ".yml");
 		assert(fs::is_directory(impath));
 
 		// out
@@ -71,7 +78,7 @@ int main(int argc, char *argv[])
 
 		YAML::Node ymlConf = YAML::LoadFile(conf);
 
-		Camera cam;	
+		Camera cam("test");	
 		CalibrationConfig calibConf(ymlConf);
 
 		/* todo : functionalize*/
@@ -90,11 +97,11 @@ int main(int argc, char *argv[])
 		// collect points in image 
 		for(const auto& en : fs::directory_iterator(impath)){
 
-			cv::Mat image = cv::imread(en.impath(), cv::IMREAD_GRAYSCALE);
+			cv::Mat image = cv::imread(en.path(), cv::IMREAD_GRAYSCALE);
 			std::vector<cv::Point3f> worldCoords;
 
-			std::string imInfo = "File " + std::to_string(i) + ": " + en.impath().u8string() + " ";
-			if(i == 0){
+			std::string imInfo = "File " + std::to_string(im_idx) + ": " + en.path().u8string() + " ";
+			if(im_idx == 0){
 				cam.setPixWidth(image.size[1]/2);
 				cam.setPixHeight(image.size[0]/2);
 
@@ -107,18 +114,24 @@ int main(int argc, char *argv[])
 
 			found = calibConf.findPoints(image, foundPoints);
 
-			found = findChessboardCorners(image, CHESSBOARD_SIZE, foundPoints,
-					cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_NORMALIZE_IMAGE);
+			/* found = findChessboardCorners(image, calibConf.patternSize(), foundPoints, */
+			/* 		cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_NORMALIZE_IMAGE); */
 
 			if(found){
 
-				cv::Scalar scales = estimateChessboardSharpness(image, CHESSBOARD_SIZE, foundPoints); 
-				std::cout << en.impath() << std::endl;
+				cv::Scalar scales = 
+					estimateChessboardSharpness(image, calibConf.patternSize(), foundPoints); 
+
+				std::cout << en.path() << std::endl;
 				std::cout << scales << std::endl;
+
 				cv::cornerSubPix(image, foundPoints, cv::Size(11, 11), cv::Size(-1, -1), criteria);
 				allCrnrs.push_back(foundPoints);
 
-				createKnownBoardDim(CHESSBOARD_SIZE, SQUARE_DIMENSIONS, worldCoords);
+				createKnownBoardDim(calibConf.patternSize(),
+														calibConf.dim(), 
+														worldCoords);
+
 				worldSpaceCornerPoints.push_back(worldCoords);
 
 				added++;
@@ -142,9 +155,9 @@ int main(int argc, char *argv[])
 
 		std::cout << "Starting calibration!" << std::endl;
 
-		// TODO : calibrateCamera
-
-		double rms = camera.calibrate(worldCors, allCrnsrs, calibConf);
+		double rms = cam.calibrate(worldSpaceCornerPoints,
+															allCrnrs, 
+															calibConf);
 
 		std::cout << "Calibration finished" << std::endl;
 
@@ -182,6 +195,8 @@ int main(int argc, char *argv[])
 
 		std::cout << "=== Calibration result ===" << std::endl;
 		std::cout << "== RMS:" << rms << std::endl;
+
+		cam.write(out);
 
 		// TODO : move to a stats file from calibration
 		/* log << "== Standard Deviation intrinsics parameters:" << std::endl; */

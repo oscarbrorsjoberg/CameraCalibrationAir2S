@@ -32,3 +32,18 @@ Place good links here!
 ### CameraUndistort
 
 Explain some stuff here!
+
+
+## what-the-camera-calibration?
+
+The stuff!
+
+### Circles
+
+### Chessboard
+
+### Chessboard 
+
+### What about the subpixels
+
+

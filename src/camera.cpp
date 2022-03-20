@@ -21,7 +21,8 @@
 using chsys = std::chrono::system_clock;
 
 static std::map<std::string, int> calibrationFlags_m;
-static std::map<std::string, int> pointFlags_m;
+static std::map<std::string, int> pointFlagsChess_m;
+static std::map<std::string, int> pointFlagsCircle_m;
 
 
 static const std::array< 
@@ -61,7 +62,7 @@ std::make_tuple("cv::CALIB_FIX_TAUX_TAUY", cv::CALIB_FIX_TAUX_TAUY)
 
 };
 
-static const std::array<std::tuple<std::string, int>, 11> posPointFlags{
+static const std::array<std::tuple<std::string, int>, 8> posPointFlagsChess{
 	// Use adaptive thresholding to convert the image to black and white, rather than a fixed threshold level (computed from the average image brightness).
 	std::make_tuple("cv::CALIB_CB_ADAPTIVE_THRESH", cv::CALIB_CB_ADAPTIVE_THRESH),
 
@@ -86,16 +87,19 @@ std::make_tuple("cv::CALIB_CB_LARGER", cv::CALIB_CB_LARGER),
 // The detected pattern must have a marker (see description). This should be used if an accurate camera calibration is required.
 std::make_tuple("cv::CALIB_CB_MARKER", cv::CALIB_CB_MARKER),
 
-	// uses symmetric pattern of circles.
-std::make_tuple("cv::CALIB_CB_SYMMETRIC_GRID", cv::CALIB_CB_SYMMETRIC_GRID),
+};
 
-// uses asymmetric pattern of circles.
-std::make_tuple("cv::CALIB_CB_ASYMMETRIC_GRID", cv::CALIB_CB_ASYMMETRIC_GRID),
+static const std::array<std::tuple<std::string, int>, 3> posPointFlagsCircle{
+	// uses symmetric pattern of circles.
+	std::make_tuple("cv::CALIB_CB_SYMMETRIC_GRID", cv::CALIB_CB_SYMMETRIC_GRID),
+
+	// uses asymmetric pattern of circles.
+	std::make_tuple("cv::CALIB_CB_ASYMMETRIC_GRID", cv::CALIB_CB_ASYMMETRIC_GRID),
 
 	// uses a special algorithm for grid detection. 
 	// It is more robust to perspective distortions but much 
 	// more sensitive to background clutter.
-std::make_tuple("cv::CALIB_CB_CLUSTERING", cv::CALIB_CB_CLUSTERING)
+	std::make_tuple("cv::CALIB_CB_CLUSTERING", cv::CALIB_CB_CLUSTERING)
 };
 
 
@@ -103,8 +107,12 @@ std::make_tuple("cv::CALIB_CB_CLUSTERING", cv::CALIB_CB_CLUSTERING)
 static void initFlagsMaps()
 {
 
-	for(const auto &[f, m] : posPointFlags){
-		pointFlags_m[f] = m;
+	for(const auto &[f, m] : posPointFlagsChess){
+		pointFlagsChess_m[f] = m;
+	}
+
+	for(const auto &[f, m] : posPointFlagsCircle){
+		pointFlagsCircle_m[f] = m;
 	}
 
 	for(const auto &[f, m] : posCalibrationFlags){
@@ -115,19 +123,13 @@ static void initFlagsMaps()
 
 
 CalibrationConfig::CalibrationConfig(const YAML::Node &config):
+	operationFlags(0),
+	pointFlags(0),
 	crit(cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS, 30, 0.001)
 
 {
 
 	initFlagsMaps();
-
-
-	for( const auto &fl : config["CalibrationFlags"].as<std::vector<std::string>>())
-		operationFlags |= calibrationFlags_m[fl];
-
-	// try if not in
-	for( const auto &fl : config["PointFlags"].as<std::vector<std::string>>())
-		pointFlags |= pointFlags_m[fl];
 
 	std::string calibType = config["CalibrationType"].as<std::string>();
 	std::string pointType = config["PointType"].as<std::string>();
@@ -136,11 +138,24 @@ CalibrationConfig::CalibrationConfig(const YAML::Node &config):
 	std::array<int, 2> size = config["PatternSize"].as<std::array<int, 2>>();
 	this->ps = cv::Size(size[0], size[1]);
 
+
+	this->dimension = config["PatternDimensions"].as<float>();
+
 	assert((!calibType.empty() && (calibType == "REGULAR" || calibType == "RO")
 				, "Calib Type is required!"));
+	
 	assert((!pointType.empty() && 
 			(pointType == "CIRCLE" || pointType == "CHESS" 
 			 || pointType == "SB_CHESS"), "Point Type is required!"));
+
+
+	for(const auto &fl : config["CalibrationFlags"].as<std::vector<std::string>>())
+		this->operationFlags |= calibrationFlags_m[fl];
+
+	for(const auto &fl : config["PointFlags"].as<std::vector<std::string>>())
+		this->pointFlags |= 
+          pointType == "CIRCLE" ? pointFlagsCircle_m[fl] : pointFlagsChess_m[fl];
+
 
 	if(pointType == "CIRCLE"){
 
@@ -160,10 +175,10 @@ CalibrationConfig::CalibrationConfig(const YAML::Node &config):
 				cv::SimpleBlobDetector::create()
 				);
 
-
 		pt = PointType::C_CIRCLES;
 	}
 	else if(pointType == "CHESS"){
+
 		findPoints = std::bind(cv::findChessboardCorners, 
 				std::placeholders::_1, 
 				this->ps, 
@@ -190,7 +205,6 @@ CalibrationConfig::CalibrationConfig(const YAML::Node &config):
 				);
 
 		pt = PointType::C_SB_CHESS;
-		// TODO: check no Array
 
 	}
 	else{
@@ -206,6 +220,8 @@ CalibrationConfig::CalibrationConfig(const YAML::Node &config):
 	else{
 		throw std::runtime_error(calibType + " is not a valid calibration type!\n");
 	}
+
+
 }
 
 
@@ -286,15 +302,15 @@ bool Camera::write(const std::string &output)
 	return true;
 }
 
-/* Camera::Camera(const std::string &camName): */
-/* 	name(camName), */
-/* 	cameraMatrix{cv::Mat::eye(3, 3, CV_64F)}, */
-/* 	distortionParams{cv::Mat::zeros(14, 1, CV_64F)} */
-/* { */
-/* } */
+Camera::Camera(const std::string &camName): 
+	intrinsics{cv::Mat::eye(3, 3, CV_64F)},
+	distortionParams{cv::Mat::zeros(14, 1, CV_64F)},
+	name_(camName)
+{
+}
 
 
-double Camera::calibrateCamera(const std::vector<vecp3f> &worldPoints,
+double Camera::calibrate(const std::vector<vecp3f> &worldPoints,
 								const std::vector<vecp2f> &imagePoints,
 								const CalibrationConfig &calibConf)
 {
@@ -315,7 +331,7 @@ double Camera::calibrateCamera(const std::vector<vecp3f> &worldPoints,
 					this->CalibrationStat.stdDevIntrinsics, 
 					this->CalibrationStat.stdDeviationExtrinsics, 
 					this->CalibrationStat.viewError, 
-					calibConf.flags(),
+					calibConf.oflags(),
 					calibConf.criteria()
 					);
 			break;
@@ -335,7 +351,7 @@ double Camera::calibrateCamera(const std::vector<vecp3f> &worldPoints,
 					this->CalibrationStat.stdDeviationExtrinsics, 
 					cv::noArray(), // could try to use this later
 					this->CalibrationStat.viewError, 
-					calibConf.flags(),
+					calibConf.oflags(),
 					calibConf.criteria()
 					);
 			break;

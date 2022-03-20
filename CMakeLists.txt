@@ -6,9 +6,12 @@ find_package(OpenCV 4.5 REQUIRED)
 find_package(Boost REQUIRED COMPONENTS
 	program_options)
 find_package(yaml-cpp REQUIRED)
+find_package(GTest REQUIRED)
 
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+
+
 
 macro(Depender depender)
 	if(NOT ${depender}_FOUND)
@@ -22,6 +25,8 @@ endmacro()
 Depender(OpenCV)
 Depender(Boost)
 Depender(yaml-cpp)
+Depender(GTest)
+
 
 set(build_flags #APPEND
  "-std=c++17"
@@ -31,12 +36,39 @@ set(build_flags #APPEND
  "-pedantic"
 )
 
+# Test binary
+
+add_executable(camtests
+	src/tests/main.cpp
+	src/camera.cpp
+)
+
+target_compile_options(camtests
+	PUBLIC
+	${build_flags}
+)
+
+target_include_directories(camtests
+	PUBLIC
+	${CMAKE_CURRENT_SOURCE_DIR}/src/
+)
+
+target_link_libraries(camtests
+	PUBLIC
+	${OpenCV_LIBS}
+	GTest::gtest_main
+	yaml-cpp
+)
+
+
+# cli binary
 
 add_executable(${PROJECT_NAME}
 	src/main.cpp
 	src/utils.cpp
 	src/camera.cpp
 )
+
 
 target_compile_options(${PROJECT_NAME}
 	PUBLIC
