@@ -20,6 +20,13 @@
 
 using chsys = std::chrono::system_clock;
 
+constexpr int NUMBR_TRANSFORM_STDDEV = 6;
+
+const std::string transExDesc[] = {"R0", "R1", "R2", "T0", "T1", "T2"};
+const std::string distDesc[] = {"fx", "fy", "cx", "cy", "k1", "k2", "p1", "p2", "k3", "k4", 
+				"k5", "k6", "s1", "s2", "s3", "s4", "taox", "taoy"};
+
+
 static std::map<std::string, int> calibrationFlags_m;
 static std::map<std::string, int> pointFlagsChess_m;
 static std::map<std::string, int> pointFlagsCircle_m;
@@ -297,8 +304,51 @@ bool Camera::write(const std::string &output)
 	if(fout.is_open() && fout.good()){
 		fout << temp;
 	}
+	else{
+		return false;
+	}
+
 	fout.close();
 
+	return true;
+}
+
+bool Camera::dump_stats(const std::string &output)
+{
+	std::ofstream log(output);
+
+
+	if(log.is_open() && log.good()){
+		for(int i = 0; i < CalibrationStat.numberSamples; i++){
+
+			cv::Mat rot = CalibrationStat.rVectors.at(i);
+			cv::Mat tran = CalibrationStat.tVectors.at(i);
+			double partRms = CalibrationStat.viewError.at<double>(i, 0);
+
+			log << "image " << i << ": "<< "Rotation: " << rot.at<double>(0,0) << " " <<
+				rot.at<double>(1,0) << " "<< rot.at<double>(2,0) <<
+				" Translation: " << tran.at<double>(0,0) << " " <<
+				tran.at<double>(1,0) << " " << tran.at<double>(2,1) << " viewError(rms): " 
+				<< partRms << std::endl;
+
+			log << "Trans stats: [";
+
+			for(int i = 0; i < NUMBR_TRANSFORM_STDDEV; i++){
+				log << transExDesc[i] << ": " 
+					<< CalibrationStat.stdDeviationExtrinsics.at<double>(NUMBR_TRANSFORM_STDDEV + i, 0) << " ";
+			}
+			log << "]" << std::endl;
+		}
+
+		log << "== Standard Deviation intrinsics parameters:" << std::endl;
+		for(int i = 0; i < CalibrationStat.stdDevIntrinsics.size[0]; i++){
+			log << distDesc[i] << ": " << CalibrationStat.stdDevIntrinsics.at<double>(i,0) << std::endl;
+		}
+		log.close();
+	}
+	else{
+		return false;
+	}
 	return true;
 }
 
@@ -309,6 +359,35 @@ Camera::Camera(const std::string &camName):
 {
 }
 
+void Camera::print(){
+	if(this->calibrated_){
+
+
+		cv::calibrationMatrixValues(
+				this->intrinsics,
+				cv::Size(this->pixWidth_, this->pixHeight_),
+				this->sensorWidth_,
+				this->sensorHeight_,
+				this->fovx_,
+				this->fovy_,
+				this->focalLength_,
+				this->principalPoint_,
+				this->aspectRatio_
+				);
+
+		std::cout << "Camera " << this->name_ << std::endl;
+		std::cout << "fovh: " << this->fovx_ << std::endl;
+		std::cout << "fovv: " << this->fovy_ << std::endl;
+		std::cout << "focal length: " << this->focalLength_ << std::endl;
+		std::cout << "aspect ratio: " << this->aspectRatio_ << std::endl;
+		std::cout << "principal point x " << this->principalPoint_.x << std::endl;
+		std::cout << "principal point y " << this->principalPoint_.y << std::endl;
+	}
+	else{
+		std::cout << "Uncalibrated camera!" << std::endl;
+	}
+}
+
 
 double Camera::calibrate(const std::vector<vecp3f> &worldPoints,
 								const std::vector<vecp2f> &imagePoints,
@@ -316,6 +395,7 @@ double Camera::calibrate(const std::vector<vecp3f> &worldPoints,
 {
 
 	this->calibrated_ = true;
+	this->CalibrationStat.numberSamples = imagePoints.size();
 
 	// TODO: this can be two different functions!
 	switch(calibConf.calibType()){

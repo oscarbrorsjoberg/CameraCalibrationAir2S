@@ -85,6 +85,8 @@ class Camera {
 		double focalLength() const {return focalLength_;}
 		double sensorWidth() const {return sensorWidth_;}
 		double sensorHeight() const {return sensorHeight_;}
+		void setSensorWidth(double sizeX){sensorWidth_ = sizeX;}
+		void setSensorHeight(double sizeY){sensorHeight_ = sizeY;}
 		double pixWidth() const {return pixWidth_;}
 		double pixHeight() const {return pixHeight_;}
 		void setPixWidth(double sizeX){pixWidth_ = sizeX;}
@@ -108,6 +110,8 @@ class Camera {
 
 
 		bool write(const std::string &output);
+		bool dump_stats(const std::string &output);
+		void print();
 
 		double calibrate(const std::vector<vecp3f> &worldPoints,
 				const std::vector<vecp2f> &imagePoints,
@@ -124,11 +128,14 @@ class Camera {
 		// TODO : Document these
 		
 		struct {
+
 			cv::Mat stdDevIntrinsics; 
 			cv::Mat stdDeviationExtrinsics; 
 			cv::Mat viewError;
 			std::vector<cv::Mat> rVectors;
-			std::vector<cv::Mat>tVectors;
+			std::vector<cv::Mat> tVectors;
+			int numberSamples;
+
 		} CalibrationStat;
 
 
@@ -137,10 +144,17 @@ class Camera {
 		bool tiltedModel_;
 		std::string name_;
 		bool calibrated_;
+
 		double aspectRatio_;
 		double focalLength_;
+
+		double fovx_;
+		double fovy_;
+
 		double sensorWidth_;
 		double sensorHeight_;
+
+
 		double pixWidth_;
 		double pixHeight_;
 		cv::Point2d principalPoint_;
