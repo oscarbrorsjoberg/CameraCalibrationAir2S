@@ -389,6 +389,22 @@ void Camera::print(){
 }
 
 
+void Camera::projectPoints(const std::vector<vecp3f> &worldPoints, 
+														std::vector<vecp2f> &projectedPoints)
+{
+
+	cv::projectPoints(worldPoints, 
+			this->CalibrationStat.rVectors, 
+			this->CalibrationStat.tVectors,
+			this->intrinsics,
+			this->distortionParams,
+			projectedPoints,
+			cv::noArray(),
+			0
+			);
+}
+
+
 double Camera::calibrate(const std::vector<vecp3f> &worldPoints,
 								const std::vector<vecp2f> &imagePoints,
 								const CalibrationConfig &calibConf)

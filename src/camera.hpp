@@ -94,6 +94,9 @@ class Camera {
 
 		cv::Point2f getPP() const {return principalPoint_;}
 
+		void projectPoints(const std::vector<vecp3f> &worldPoints, 
+				std::vector<vecp2f> &projectedPoints);
+
 		Camera(const std::string &name);
 		/* Camera(): */
 		/* { */

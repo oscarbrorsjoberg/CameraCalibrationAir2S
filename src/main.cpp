@@ -21,7 +21,7 @@ namespace po = boost::program_options;
 
 
 bool read_cmd_line(int argc, char *argv[],
-		std::string &impath, std::string &conf, std::string &out)
+		std::string &impath, std::string &conf, std::string &out, std::string &log_name)
 {
 	po::options_description opt("CameraCalibration options");
 
@@ -32,6 +32,7 @@ bool read_cmd_line(int argc, char *argv[],
 		("path,p", po::value<std::string>(&impath)->required(), "path to images")
 		("conf,c", po::value<std::string>(&conf)->required(), "configuration file")
 		("out,o", po::value<std::string>(&out)->required(), "out camera parameters in .yml")
+		("log,l", po::value<std::string>(&log_name), "log information")
 		;
 
 	po::variables_map vm;
@@ -51,14 +52,15 @@ int main(int argc, char *argv[])
 {
 
 	try{
-		std::string impath, out, conf; 
+		std::string impath, out, conf, log; 
 
-		if(!read_cmd_line(argc, argv, impath, conf, out)){
+		if(!read_cmd_line(argc, argv, impath, conf, out, log)){
 			return 0;
 		}
 
 		assert(fs::path(out).extension() == ".yml");
 		assert(fs::path(conf).extension() == ".yml");
+		assert(fs::path(log).extension() == ".txt");
 		assert(fs::is_directory(impath));
 
 		YAML::Node ymlConf = YAML::LoadFile(conf);
@@ -92,7 +94,7 @@ int main(int argc, char *argv[])
 				cam.setPixWidth(image.size[1]);
 				cam.setPixHeight(image.size[0]);
 
-				// this is the 1" sensor
+				// this is the 1" sensor in mm
 				cam.setSensorWidth(13.200);
 				cam.setSensorHeight(8.800);
 
@@ -111,40 +113,56 @@ int main(int argc, char *argv[])
 				std::cout << "image size " << image.size[1] << " "<< image.size[0] << std::endl;
 
 				// show and choose
+				
+				
+				
 
-				// is this always necessary
+				// is this always necessary??
 				cv::cornerSubPix(image, foundPoints, cv::Size(11, 11), cv::Size(-1, -1), criteria);
 
-				allCrnrs.push_back(foundPoints);
+				cv::drawChessboardCorners(image, calibConf.patternSize(), foundPoints, found);
+				cv::imshow("Corners", image);
+				cv::resizeWindow("Corners", 1020, 780);
+				cv::setWindowProperty("Corners", cv::WINDOW_FULLSCREEN, 0.0);
+				std::cout << "Press (a) for adding points, or press anything for not adding points\n";
 
-				createKnownBoardDim(calibConf.patternSize(),
-														calibConf.dim(), 
-														worldCoords);
-				worldSpaceCornerPoints.push_back(worldCoords);
-				added++;
+				if((char)cv::waitKey(0) == 'a'){
+					allCrnrs.push_back(foundPoints);
+					createKnownBoardDim(calibConf.patternSize(),
+							calibConf.dim(), 
+							worldCoords);
+					worldSpaceCornerPoints.push_back(worldCoords);
+					added++;
+				}
+				else{
+					std::cout << "Points not added!\n";
+				}
 
 			}
 			std::cout << im_idx++ << std::endl;
 		}
 
 
-		std::cout << "Starting calibration!" << std::endl;
+		if(allCrnrs.size() > 0){
+			std::cout << "Starting calibration!" << std::endl;
 
-		double rms = cam.calibrate(worldSpaceCornerPoints,
-															allCrnrs, 
-															calibConf);
+			double rms = cam.calibrate(worldSpaceCornerPoints,
+					allCrnrs, 
+					calibConf);
 
-		std::cout << "Calibration finished" << std::endl;
+			std::cout << "Calibration finished" << std::endl;
 
 
-		std::cout << "=== Calibration result ===" << std::endl;
-		std::cout << "== RMS:" << rms << std::endl;
+			std::cout << "=== Calibration result ===" << std::endl;
+			std::cout << "== RMS:" << rms << std::endl;
 
-		cam.write(out);
-		cam.print();
-
-		// TODO: name change
-		cam.dump_stats("log.txt");
+			cam.write(out);
+			cam.print();
+			cam.dump_stats(log);
+		}
+		else{
+			std::cout << "No points found!\n";
+		}
 
 	}
 	catch(std::exception const & e) {
