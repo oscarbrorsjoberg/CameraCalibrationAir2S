@@ -36,7 +36,7 @@ K [R | t]
 1. [Zhang](https://www.cvl.isy.liu.se/education/undergraduate/tsbb09/lasmaterial/zhang-report.pdf)
 	Zhangs report give some crucial insight into how the camera matrix can 
 	be resectioned in intrinsic and extrinisc, and how to solve the different intrinsic and extrinsic camera parameters 
-	given the calibration points. Some of the equations are covered more thourogly in these 
+	given the calibration points. Some of the equations are covered more thoroughly in these 
 	[slides](https://www.cvl.isy.liu.se/education/undergraduate/tsbb09/forelasningsslides/CameraCalibration2.pdf)
 
 2. [Practical advice](https://calib.io/blogs/knowledge-base/calibration-best-practices)
