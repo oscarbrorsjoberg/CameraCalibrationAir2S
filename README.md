@@ -7,6 +7,7 @@ A small wrapper for testing out the different camera calibration methods in Open
 2. OpenCV VERSION 4.5.2
 3. Boost VERSION 1.74.0
 4. yaml-cpp VERSION 0.7.0
+5. GTest 1.10.0
 
 ## Building
 

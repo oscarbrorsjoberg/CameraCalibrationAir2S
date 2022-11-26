@@ -25,8 +25,6 @@ bool read_cmd_line(int argc, char *argv[],
 {
 	po::options_description opt("CameraCalibration options");
 
-
-
 	opt.add_options()
 		("help,h", "produce help message")
 		("path,p", po::value<std::string>(&impath)->required(), "path to images")
@@ -112,10 +110,6 @@ int main(int argc, char *argv[])
 
 				std::cout << "image size " << image.size[1] << " "<< image.size[0] << std::endl;
 
-				// show and choose
-				
-				
-				
 
 				// is this always necessary??
 				cv::cornerSubPix(image, foundPoints, cv::Size(11, 11), cv::Size(-1, -1), criteria);
@@ -126,6 +120,7 @@ int main(int argc, char *argv[])
 				cv::setWindowProperty("Corners", cv::WINDOW_FULLSCREEN, 0.0);
 				std::cout << "Press (a) for adding points, or press anything for not adding points\n";
 
+				// show and choose	
 				if((char)cv::waitKey(0) == 'a'){
 					allCrnrs.push_back(foundPoints);
 					createKnownBoardDim(calibConf.patternSize(),
