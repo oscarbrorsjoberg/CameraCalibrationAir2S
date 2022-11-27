@@ -26,6 +26,23 @@ The toolbox contains two separate binaries:
 CameraCalibration and CameraUndistort.
 
 
+# Camera Sensor Notes
+
+## Sensor Sizes
+
+[image](./educ/450px-Sensorformate_KB.svg.png) 
+[sizes](https://designreviews.com/standards/digital-camera-sensor-size-chart/)
+
+# Some babbeling
+Full Frame Sensor = 35mm film 
+36x24mm
+> ASP-C
+> 4/3rds
+> Nikon
+> 2/3rds
+1/1.7" 
+
+
 ### CameraUndistort
 Explain some stuff here!
 
@@ -45,7 +62,39 @@ K [R | t]
 
 3. [CircularVsChecker](https://www.researchgate.net/post/Which-pattern-circle-pattern-or-checkerboard-pattern-should-be-used-for-automotive-camera-calibration-fisheye-wide-webcam)
 
+## CameraCalibration
 
+Camera calibration can be done with different configurations, this is modulated through the camera calibration configuration file. Please see example: <>.
+
+Here the different parameters that can be tweaked in a calibration step will be explained.
+Different calibration flags will also be explained.
+
+CalibrationFlags: 
+"cv::CALIB_USE_INTRINSIC_GUESS," 
+"cv::CALIB_FIX_PRINCIPAL_POINT," 
+"cv::CALIB_FIX_ASPECT_RATIO,"
+"cv::CALIB_ZERO_TANGENT_DIST,"
+"cv::CALIB_FIX_K2,"
+"cv::CALIB_FIX_K3,"
+"cv::CALIB_FIX_K4,"
+"cv::CALIB_FIX_K5,"
+"cv::CALIB_FIX_K6,"
+"cv::CALIB_RATIONAL_MODEL,"
+"cv::CALIB_THIN_PRISM_MODEL,"
+"cv::CALIB_FIX_S1_S2_S3_S4,"
+"cv::CALIB_TILTED_MODEL,"
+"cv::CALIB_FIX_TAUX_TAUY"
+
+PointFlags: 
+
+  [cv::CALIB_CB_FAST_CHECK]
+PatternSize: [6, 9]
+PatternDimensions: 0.02635
+PointType: 
+    CHESS_SB
+    CHESS
+    CIRCLE
+CalibrationType: REGULAR
 
 ## Distortions
 

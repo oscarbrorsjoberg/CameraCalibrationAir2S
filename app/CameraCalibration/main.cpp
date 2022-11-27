@@ -82,6 +82,11 @@ int main(int argc, char *argv[])
 		// collect points in image 
 		for(const auto& en : fs::directory_iterator(impath)){
 
+      if(!(en.path().extension() == ".JPG")){
+        std::cout << "Only reading jpegs\n";
+        continue;
+      }
+
 			cv::Mat image = cv::imread(en.path(), cv::IMREAD_GRAYSCALE);
 			std::vector<cv::Point3f> worldCoords;
 
@@ -92,9 +97,12 @@ int main(int argc, char *argv[])
 				cam.setPixWidth(image.size[1]);
 				cam.setPixHeight(image.size[0]);
 
-				// this is the 1" sensor in mm
-				cam.setSensorWidth(13.200);
-				cam.setSensorHeight(8.800);
+				// this is the 1" sensor in mm (air2s)
+				/* cam.setSensorWidth(13.200); */
+				/* cam.setSensorHeight(8.800); */
+        
+				cam.setSensorWidth(3.200);
+				cam.setSensorHeight(2.400);
 
 			}
 
