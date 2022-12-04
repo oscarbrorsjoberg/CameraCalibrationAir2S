@@ -22,7 +22,7 @@ using chsys = std::chrono::system_clock;
 
 constexpr int NUMBR_TRANSFORM_STDDEV = 6;
 
-const std::string transExDesc[] = {"R0", "R1", "R2", "T0", "T1", "T2"};
+const std::string transExDesc[] = {"R0_sigma", "R1_sigma", "R2_sigma", "T0_sigma", "T1_sigma", "T2_sigma"};
 const std::string distDesc[] = {"fx", "fy", "cx", "cy", "k1", "k2", "p1", "p2", "k3", "k4", 
 				"k5", "k6", "s1", "s2", "s3", "s4", "taox", "taoy"};
 
@@ -317,39 +317,68 @@ bool Camera::dump_stats(const std::string &output)
 {
 	std::ofstream log(output);
 
+  log << "image,rotx,roty,rotz,tx,ty,tz,error";
 
-	if(log.is_open() && log.good()){
-		for(int i = 0; i < CalibrationStat.numberSamples; i++){
+  for(int i = 0; i < NUMBR_TRANSFORM_STDDEV; i++){
+    log << ',' << transExDesc[i];
+  }
+  log << "\n";
 
-			cv::Mat rot = CalibrationStat.rVectors.at(i);
-			cv::Mat tran = CalibrationStat.tVectors.at(i);
-			double partRms = CalibrationStat.viewError.at<double>(i, 0);
+  // first write the csv log
+ 
+  if(log.is_open() && log.good()){
+    for(int i = 0; i < CalibrationStat.numberSamples; i++){
 
-			log << "image " << i << ": "<< "Rotation: " << rot.at<double>(0,0) << " " <<
-				rot.at<double>(1,0) << " "<< rot.at<double>(2,0) <<
-				" Translation: " << tran.at<double>(0,0) << " " <<
-				tran.at<double>(1,0) << " " << tran.at<double>(2,1) << " viewError(rms): " 
-				<< partRms << std::endl;
+      cv::Mat rot = CalibrationStat.rVectors.at(i);
+      cv::Mat tran = CalibrationStat.tVectors.at(i);
+      double partRms = CalibrationStat.viewError.at<double>(i, 0);
 
-			log << "Trans stats: [";
+      log << i << ','
+        << rot.at<double>(0,0) << ',' 
+        << rot.at<double>(1,0) << ','
+        << rot.at<double>(2,0) << ','
+        << tran.at<double>(0,0) << ',' 
+        << tran.at<double>(1,0) << ',' 
+        << tran.at<double>(2,1) << ','
+        << partRms;
 
-			for(int i = 0; i < NUMBR_TRANSFORM_STDDEV; i++){
-				log << transExDesc[i] << ": " 
-					<< CalibrationStat.stdDeviationExtrinsics.at<double>(NUMBR_TRANSFORM_STDDEV + i, 0) << " ";
-			}
-			log << "]" << std::endl;
-		}
+      for(int j = 0; j < NUMBR_TRANSFORM_STDDEV; j++){
+        log << ',' 
+          << CalibrationStat.stdDeviationExtrinsics.at<double>( (i * NUMBR_TRANSFORM_STDDEV) + j, 0);
+      }
 
-		log << "== Standard Deviation intrinsics parameters:" << std::endl;
-		for(int i = 0; i < CalibrationStat.stdDevIntrinsics.size[0]; i++){
-			log << distDesc[i] << ": " << CalibrationStat.stdDevIntrinsics.at<double>(i,0) << std::endl;
-		}
-		log.close();
-	}
-	else{
-		return false;
-	}
-	return true;
+      log << "\n";
+    }
+
+    log.close();
+  }
+  else{
+    return false;
+  }
+    
+  // then summarize with json stdeev
+  
+  std::ofstream summary("summary.json");
+  if(summary.is_open() && summary.good()){
+    summary << '{' << "\n";
+    for(int i = 0; i < CalibrationStat.stdDevIntrinsics.size[0]; i++){
+      if(i ==  CalibrationStat.stdDevIntrinsics.size[0] - 1 ){
+        summary << '"' << distDesc[i] << '"' << " : " 
+          << CalibrationStat.stdDevIntrinsics.at<double>(i,0) << std::endl;
+      }
+      else{
+        summary << '"' << distDesc[i] << '"' << " : " 
+          << CalibrationStat.stdDevIntrinsics.at<double>(i,0) << ',' << std::endl;
+      }
+    }
+    summary << '}' << "\n";
+    summary.close();
+  }
+  else{
+    return false;
+  }
+
+  return true;
 }
 
 Camera::Camera(const std::string &camName): 

@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.11)
 project(CameraCalibrationCli VERSION 1.0.0)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(OpenCV 4.5 REQUIRED)
 find_package(Boost REQUIRED COMPONENTS

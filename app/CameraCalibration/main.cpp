@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
 
 		assert(fs::path(out).extension() == ".yml");
 		assert(fs::path(conf).extension() == ".yml");
-		assert(fs::path(log).extension() == ".txt");
+		assert(fs::path(log).extension() == ".csv");
 		assert(fs::is_directory(impath));
 
 		YAML::Node ymlConf = YAML::LoadFile(conf);
@@ -82,6 +82,7 @@ int main(int argc, char *argv[])
 		// collect points in image 
 		for(const auto& en : fs::directory_iterator(impath)){
 
+      // should to try catch
       if(!(en.path().extension() == ".JPG")){
         std::cout << "Only reading jpegs\n";
         continue;
@@ -101,50 +102,60 @@ int main(int argc, char *argv[])
 				/* cam.setSensorWidth(13.200); */
 				/* cam.setSensorHeight(8.800); */
         
+        // roxcon -- TODO: make as input
 				cam.setSensorWidth(3.200);
 				cam.setSensorHeight(2.400);
 
 			}
 
+      std::cout << en.path() << std::endl;
+      std::cout << "image size " << image.size[1] << " "<< image.size[0] << std::endl;
+
 			found = calibConf.findPoints(image, foundPoints);
 
-			if(found){
+      if(found){
+        cv::Scalar scales = 
+          estimateChessboardSharpness(image, calibConf.patternSize(), foundPoints); 
+        std::cout << en.path() << std::endl;
+        std::cout << scales << std::endl;
+        std::cout << "image size " << image.size[1] << " "<< image.size[0] << std::endl;
+        // is this always necessary??
+        cv::cornerSubPix(image, foundPoints, cv::Size(11, 11), cv::Size(-1, -1), criteria);
 
-				cv::Scalar scales = 
-					estimateChessboardSharpness(image, calibConf.patternSize(), foundPoints); 
+        cv::drawChessboardCorners(image, calibConf.patternSize(), foundPoints, found);
+        cv::imshow("Corners", image);
+        cv::setWindowProperty("Corners", 
+            cv::WINDOW_NORMAL | cv::WINDOW_GUI_EXPANDED, 
+            cv::WND_PROP_AUTOSIZE);
 
-				std::cout << en.path() << std::endl;
-				std::cout << scales << std::endl;
+        cv::resizeWindow("Corners", 512, 512);
 
-				std::cout << "image size " << image.size[1] << " "<< image.size[0] << std::endl;
+        std::cout << "Press (a) for adding points, or press (n) for not adding points\n";
 
+        // show and choose	
+        while(true){
+          if((char)cv::waitKey(0) == 'a'){
+            allCrnrs.push_back(foundPoints);
+            createKnownBoardDim(calibConf.patternSize(),
+                calibConf.dim(), 
+                worldCoords);
+            worldSpaceCornerPoints.push_back(worldCoords);
+            added++;
+            break;
+          }
+          else if((char)cv::waitKey(0) == 'n'){
+            std::cout << "image " << en.path() << "not added." << "\n";
+            break;
+          }
+          else{
+            std::cout << "Press a or n!\n";
+          }
+        }
+      }
 
-				// is this always necessary??
-				cv::cornerSubPix(image, foundPoints, cv::Size(11, 11), cv::Size(-1, -1), criteria);
+    }
 
-				cv::drawChessboardCorners(image, calibConf.patternSize(), foundPoints, found);
-				cv::imshow("Corners", image);
-				cv::resizeWindow("Corners", 1020, 780);
-				cv::setWindowProperty("Corners", cv::WINDOW_FULLSCREEN, 0.0);
-				std::cout << "Press (a) for adding points, or press anything for not adding points\n";
-
-				// show and choose	
-				if((char)cv::waitKey(0) == 'a'){
-					allCrnrs.push_back(foundPoints);
-					createKnownBoardDim(calibConf.patternSize(),
-							calibConf.dim(), 
-							worldCoords);
-					worldSpaceCornerPoints.push_back(worldCoords);
-					added++;
-				}
-				else{
-					std::cout << "Points not added!\n";
-				}
-
-			}
-			std::cout << im_idx++ << std::endl;
-		}
-
+    std::cout << im_idx++ << std::endl;
 
 		if(allCrnrs.size() > 0){
 			std::cout << "Starting calibration!" << std::endl;
@@ -155,10 +166,8 @@ int main(int argc, char *argv[])
 
 			std::cout << "Calibration finished" << std::endl;
 
-
 			std::cout << "=== Calibration result ===" << std::endl;
 			std::cout << "== RMS:" << rms << std::endl;
-
 			cam.write(out);
 			cam.print();
 			cam.dump_stats(log);

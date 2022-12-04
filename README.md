@@ -34,6 +34,7 @@ CameraCalibration and CameraUndistort.
 [sizes](https://designreviews.com/standards/digital-camera-sensor-size-chart/)
 
 # Some babbeling
+
 Full Frame Sensor = 35mm film 
 36x24mm
 > ASP-C
