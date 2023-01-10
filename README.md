@@ -1,7 +1,7 @@
 # Camera Calibration toolbox wrapping OpenCV
 A small wrapper for testing out the different camera calibration methods in OpenCV.
 
-## Dependencies/Requirments
+## Dependencies/Requirements
 
 1. C++17/gcc 9.4
 2. OpenCV VERSION 4.5.2
@@ -29,11 +29,9 @@ CameraCalibration and CameraUndistort.
 # Camera Sensor Notes
 
 ## Sensor Sizes
+[sensor sizes](https://designreviews.com/standards/digital-camera-sensor-size-chart/)
 
-[image](./educ/450px-Sensorformate_KB.svg.png) 
-[sizes](https://designreviews.com/standards/digital-camera-sensor-size-chart/)
-
-# Some babbeling
+# Some babbling
 
 Full Frame Sensor = 35mm film 
 36x24mm
@@ -45,7 +43,7 @@ Full Frame Sensor = 35mm film
 
 
 ### CameraUndistort
-Explain some stuff here!
+TODO
 
 ## what-the-camera-calibration?
 
@@ -63,9 +61,11 @@ K [R | t]
 
 3. [CircularVsChecker](https://www.researchgate.net/post/Which-pattern-circle-pattern-or-checkerboard-pattern-should-be-used-for-automotive-camera-calibration-fisheye-wide-webcam)
 
+4. [old-but-gold](https://dsp.stackexchange.com/questions/1567/how-do-i-get-the-most-accurate-camera-calibration)
+
 ## CameraCalibration
 
-Camera calibration can be done with different configurations, this is modulated through the camera calibration configuration file. Please see example: <>.
+Camera calibration can be done with different configurations, this is modulated through the camera calibration configuration file. Please see [example](./example/chess.yml).
 
 Here the different parameters that can be tweaked in a calibration step will be explained.
 Different calibration flags will also be explained.

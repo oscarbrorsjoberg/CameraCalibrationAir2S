@@ -7,6 +7,9 @@
 #include <vector>
 #include <array>
 #include <functional>
+#include <filesystem>
+
+#include <filesystem>
 
 #include <opencv2/core.hpp>
 #include <opencv2/calib3d.hpp>
@@ -18,6 +21,7 @@
 
 #include "camera.hpp"
 
+namespace fs = std::filesystem;
 using chsys = std::chrono::system_clock;
 
 constexpr int NUMBR_TRANSFORM_STDDEV = 6;
@@ -268,10 +272,10 @@ static std::string loadCameraSchema(const std::string &name)
 
 bool Camera::write(const std::string &output)
 {
-	std::ofstream fout(output);
+  fs::path out_path = output + "/" + name_ + ".yml";
+	std::ofstream fout(out_path);
 
 	YAML::Node temp = YAML::Load(loadCameraSchema(name_));
-
 
 	chsys::time_point p = chsys::now();
 	time_t t = chsys::to_time_t(p);
@@ -313,9 +317,13 @@ bool Camera::write(const std::string &output)
 	return true;
 }
 
-bool Camera::dump_stats(const std::string &output)
+bool Camera::dumpStats(const std::string &output)
 {
-	std::ofstream log(output);
+
+  const fs::path log_path = output + "/log.csv";
+  const fs::path summary_path = output + "/summary.json";
+  
+	std::ofstream log(log_path);
 
   log << "image,rotx,roty,rotz,tx,ty,tz,error";
 
@@ -328,7 +336,6 @@ bool Camera::dump_stats(const std::string &output)
  
   if(log.is_open() && log.good()){
     for(int i = 0; i < CalibrationStat.numberSamples; i++){
-
       cv::Mat rot = CalibrationStat.rVectors.at(i);
       cv::Mat tran = CalibrationStat.tVectors.at(i);
       double partRms = CalibrationStat.viewError.at<double>(i, 0);
@@ -344,12 +351,11 @@ bool Camera::dump_stats(const std::string &output)
 
       for(int j = 0; j < NUMBR_TRANSFORM_STDDEV; j++){
         log << ',' 
-          << CalibrationStat.stdDeviationExtrinsics.at<double>( (i * NUMBR_TRANSFORM_STDDEV) + j, 0);
+          << CalibrationStat.stdDeviationExtrinsics.at<double>(
+                (i * NUMBR_TRANSFORM_STDDEV) + j, 0);
       }
-
       log << "\n";
     }
-
     log.close();
   }
   else{
@@ -357,8 +363,7 @@ bool Camera::dump_stats(const std::string &output)
   }
     
   // then summarize with json stdeev
-  
-  std::ofstream summary("summary.json");
+  std::ofstream summary(summary_path);
   if(summary.is_open() && summary.good()){
     summary << '{' << "\n";
     for(int i = 0; i < CalibrationStat.stdDevIntrinsics.size[0]; i++){

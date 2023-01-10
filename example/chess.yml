@@ -1,0 +1,8 @@
+CalibrationFlags: 
+  []
+PointFlags: 
+  [cv::CALIB_CB_FAST_CHECK]
+PatternSize: [6, 9]
+PatternDimensions: 0.02635
+PointType: CHESS
+CalibrationType: REGULAR

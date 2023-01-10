@@ -21,7 +21,7 @@ namespace po = boost::program_options;
 
 
 bool read_cmd_line(int argc, char *argv[],
-		std::string &impath, std::string &conf, std::string &out, std::string &log_name)
+		std::string &impath, std::string &conf, std::string &out, std::string &name)
 {
 	po::options_description opt("CameraCalibration options");
 
@@ -29,8 +29,10 @@ bool read_cmd_line(int argc, char *argv[],
 		("help,h", "produce help message")
 		("path,p", po::value<std::string>(&impath)->required(), "path to images")
 		("conf,c", po::value<std::string>(&conf)->required(), "configuration file")
-		("out,o", po::value<std::string>(&out)->required(), "out camera parameters in .yml")
-		("log,l", po::value<std::string>(&log_name), "log information")
+		("name,n", po::value<std::string>(&name)->required(), 
+              "name of camera will result in /out/<name>.yml")
+		("out,o", po::value<std::string>(&out)->required(), 
+              "out directory where camera.yml, log.csv and summary.json will be stored")
 		;
 
 	po::variables_map vm;
@@ -50,23 +52,24 @@ int main(int argc, char *argv[])
 {
 
 	try{
-		std::string impath, out, conf, log; 
+		std::string impath, out, conf, name; 
 
-		if(!read_cmd_line(argc, argv, impath, conf, out, log)){
+		if(!read_cmd_line(argc, argv, impath, 
+                      conf, out, name)){
 			return 0;
 		}
 
-		assert(fs::path(out).extension() == ".yml");
 		assert(fs::path(conf).extension() == ".yml");
-		assert(fs::path(log).extension() == ".csv");
+		assert(fs::is_directory(out));
 		assert(fs::is_directory(impath));
+
+    assert(!fs::exists(fs::path(out+"/"+name)));
 
 		YAML::Node ymlConf = YAML::LoadFile(conf);
 
 		Camera cam("test");	
 		CalibrationConfig calibConf(ymlConf);
 
-		/* todo : functionalize*/
 
 		std::vector<std::vector<cv::Point2f>> allCrnrs;
 		std::vector<cv::Point2f> foundPoints;
@@ -75,6 +78,8 @@ int main(int argc, char *argv[])
 		/* todo check this! */
 		cv::TermCriteria criteria(cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS, 30, 0.001);
 		bool found = false;
+
+    // what are those??
 		int im_idx = 0, added = 0;
 
 		std::vector<std::tuple<bool, std::string>> imageInformation;
@@ -82,13 +87,18 @@ int main(int argc, char *argv[])
 		// collect points in image 
 		for(const auto& en : fs::directory_iterator(impath)){
 
-      // should to try catch
-      if(!(en.path().extension() == ".JPG")){
-        std::cout << "Only reading jpegs\n";
+      cv::Mat image;
+
+      image = cv::imread(en.path(), cv::IMREAD_GRAYSCALE);
+      if(image.empty()){
+        std::cout << "Unable to read file " << en.path() << "\n";
         continue;
       }
 
-			cv::Mat image = cv::imread(en.path(), cv::IMREAD_GRAYSCALE);
+      std::cout << en.path() << std::endl;
+      std::cout << "image size " << image.size[1] << " "<< image.size[0] << std::endl;
+
+
 			std::vector<cv::Point3f> worldCoords;
 
 			if(im_idx == 0){
@@ -108,8 +118,6 @@ int main(int argc, char *argv[])
 
 			}
 
-      std::cout << en.path() << std::endl;
-      std::cout << "image size " << image.size[1] << " "<< image.size[0] << std::endl;
 
 			found = calibConf.findPoints(image, foundPoints);
 
@@ -170,7 +178,7 @@ int main(int argc, char *argv[])
 			std::cout << "== RMS:" << rms << std::endl;
 			cam.write(out);
 			cam.print();
-			cam.dump_stats(log);
+			cam.dumpStats(out);
 		}
 		else{
 			std::cout << "No points found!\n";

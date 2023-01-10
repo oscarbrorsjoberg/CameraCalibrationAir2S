@@ -113,7 +113,7 @@ class Camera {
 
 
 		bool write(const std::string &output);
-		bool dump_stats(const std::string &output);
+		bool dumpStats(const std::string &output);
 		void print();
 
 		double calibrate(const std::vector<vecp3f> &worldPoints,
