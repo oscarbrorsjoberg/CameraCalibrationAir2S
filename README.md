@@ -3,11 +3,16 @@ A small wrapper for testing out the different camera calibration methods in Open
 
 ## Dependencies/Requirements
 
+
+### Calibration code
 1. C++17/gcc 9.4
 2. OpenCV VERSION 4.5.2
 3. Boost VERSION 1.74.0
 4. yaml-cpp VERSION 0.7.0
 5. GTest 1.10.0
+
+### Calibration Tools
+scripts
 
 ## Building
 
@@ -24,6 +29,9 @@ make
 
 The toolbox contains two separate binaries:
 CameraCalibration and CameraUndistort.
+
+
+# camera 
 
 
 # Camera Sensor Notes
@@ -46,7 +54,6 @@ Full Frame Sensor = 35mm film
 TODO
 
 ## what-the-camera-calibration?
-
 
 K [R | t]
 
@@ -125,7 +132,6 @@ https://elib.dlr.de/71888/1/strobl_2011iccv.pdf
 
 
 ## FAQ
-
 
 1. What is the rational model? cv::CALIB\_RATIONAL\_MODEL
 
