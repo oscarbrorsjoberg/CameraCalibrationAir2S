@@ -109,3 +109,18 @@ target_link_libraries(calibrator
 	Boost::program_options
 	yaml-cpp
 )
+# aruco
+
+add_executable(aruco
+    app/ARuco/main.cpp
+)
+
+target_compile_options(aruco
+	PUBLIC
+	${build_flags}
+)
+
+target_link_libraries(aruco
+	PUBLIC
+	${OpenCV_LIBS}
+)
