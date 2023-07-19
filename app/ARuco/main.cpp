@@ -31,13 +31,13 @@ int main(int argc, char *argv[])
   cv::aruco::Dictionary dict = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
 
   for(int i = 0; i < 10; ++i){
-    outp /= std::to_string(i) + ".png";
+    fs::path cim = outp / (std::to_string(i) + ".png");
     cv::aruco::generateImageMarker(dict, i, 200, markerImage);
-    if(!fs::exists(outp)){
-      cv::imwrite(outp.string(), markerImage);
+    if(!fs::exists(cim)){
+      cv::imwrite(cim.string(), markerImage);
     }
     else{
-      std::cout << outp << " already exists!\n";
+      std::cout << cim << " already exists!\n";
     }
   }
 
