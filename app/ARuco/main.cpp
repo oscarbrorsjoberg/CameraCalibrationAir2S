@@ -14,6 +14,8 @@ namespace fs = std::filesystem;
 
 /* small bin to generate 10 markers from 6x6*/
 
+constexpr int a3Width300DPI = 3508;
+
 int main(int argc, char *argv[])
 {
 
@@ -32,7 +34,7 @@ int main(int argc, char *argv[])
 
   for(int i = 0; i < 10; ++i){
     fs::path cim = outp / (std::to_string(i) + ".png");
-    cv::aruco::generateImageMarker(dict, i, 200, markerImage);
+    cv::aruco::generateImageMarker(dict, i, a3Width300DPI, markerImage);
     if(!fs::exists(cim)){
       cv::imwrite(cim.string(), markerImage);
     }
